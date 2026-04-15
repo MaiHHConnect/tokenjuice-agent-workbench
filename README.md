@@ -1,18 +1,18 @@
-# Claude 白板
+# Claude 白白板
 
 *榨干每一单位 token 效率的多 Agent 白板工作台*
 
-![Claude 白板: AI Agent Dashboard with task pipeline, system metrics, Wiki knowledge base and Skill management](assets/preview.jpg)
+![Claude 白白板: AI Agent Dashboard with task pipeline, system metrics, Wiki knowledge base and Skill management](assets/preview.jpg)
 
-Claude 白板 is an open-source control center for Claude Code / AI Agent workflows — combining task decomposition, sequential/parallel scheduling, execution, automatic QA, fix loops, Wiki knowledge沉淀, and Skill self-evolution on a single visual board. It's not just another TODO kanban; it's an agent workbench where "planner, executor, and evaluator" continuously collaborate.
+Claude 白白板 is an open-source control center for Claude Code / AI Agent workflows — combining task decomposition, sequential/parallel scheduling, execution, automatic QA, fix loops, Wiki knowledge沉淀, and Skill self-evolution on a single visual board. It's not just another TODO kanban; it's an agent workbench where "planner, executor, and evaluator" continuously collaborate.
 
-**SEO Title:** Claude 白板 - Claude Code Multi-Agent Whiteboard Workstation & AI Automation Kanban
+**SEO Title:** Claude 白白板 - Claude Code Multi-Agent Whiteboard Workstation & AI Automation Kanban
 
-**SEO Description:** Claude 白板 is an open-source AI Agent workstation supporting Claude Code multi-agent scheduling, task decomposition, automatic QA, Wiki knowledge capture, Skill auto-generation and token efficiency optimization.
+**SEO Description:** Claude 白白板 is an open-source AI Agent workstation supporting Claude Code multi-agent scheduling, task decomposition, automatic QA, Wiki knowledge capture, Skill auto-generation and token efficiency optimization.
 
 **SEO Keywords:** Claude Code, AI Agent, Multi-Agent, Agent Workbench, AI Kanban, automated development, multi-agent scheduling, Wiki knowledge base, Skill self-evolution, Token Efficiency, Whiteboard Workstation
 
-## Why Claude 白板
+## Why Claude 白白板
 
 Long-running AI coding hits three common walls: context drift, over-generous self-assessment, and chaotic parallelism on complex tasks. TokenJuice makes these bottlenecks explicit and product-driven:
 
@@ -86,4 +86,4 @@ MIT License — see [LICENSE](LICENSE)
 
 ---
 
-*Claude 白板 — Every token counts.*
+*Claude 白白板 — Every token counts.*
