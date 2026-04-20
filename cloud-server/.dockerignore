@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+data/*.json
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example

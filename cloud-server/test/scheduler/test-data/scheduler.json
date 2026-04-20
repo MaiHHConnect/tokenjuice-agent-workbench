@@ -1,0 +1,11 @@
+{
+  "agents": [],
+  "tasks": [],
+  "taskHistory": [],
+  "taskLogs": [],
+  "taskTagCounter": 0,
+  "wikis": [],
+  "schedulerConfig": {
+    "maxConcurrentAgents": 5
+  }
+}

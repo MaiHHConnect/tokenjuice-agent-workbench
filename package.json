@@ -1,0 +1,17 @@
+{
+  "name": "claude-code-scheduler",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.js",
+    "cli": "node --experimental-vm-modules src/cli.js"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}

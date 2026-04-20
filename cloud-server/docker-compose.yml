@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  scheduler-server:
+    build: .
+    ports:
+      - "6666:6666"
+    environment:
+      - PORT=6666
+      - HOST=0.0.0.0
+      # 钉钉 Webhook 配置（可选）
+      - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL:-}
+      - DINGTALK_SECRET=${DINGTALK_SECRET:-}
+      # 钉钉 Stream 配置（可选）
+      - DINGTALK_APP_KEY=${DINGTALK_APP_KEY:-}
+      - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
+    volumes:
+      - scheduler-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  scheduler-data:

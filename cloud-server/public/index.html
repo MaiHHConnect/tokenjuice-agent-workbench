@@ -1,0 +1,2784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>白白板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F5F5F7;
+      color: #1D1D1F;
+      min-height: 100vh;
+    }
+
+    .glass-header {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+      transition: all 0.4s ease;
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .kanban-column {
+      background: transparent;
+    }
+
+    .task-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      overflow: hidden;
+    }
+
+    .task-card:hover {
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    /* 终端风格输出区域（淡灰色背景） */
+    .terminal-output {
+      background: #F5F5F7;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-top: 4px;
+      font-family: 'SF Mono', Monaco, Menlo, monospace;
+      font-size: 9px;
+      line-height: 1.4;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .terminal-output .terminal-line {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 3px;
+    }
+
+    .terminal-output .terminal-line .line-header {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .terminal-output .terminal-line .prefix {
+      color: #86868B;
+      flex-shrink: 0;
+    }
+
+    .terminal-output .terminal-line .agent-tag {
+      color: #AF52DE;
+      flex-shrink: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .terminal-output .terminal-line .line-content {
+      color: #1D1D1F;
+      word-break: break-all;
+      white-space: pre-wrap;
+      min-width: 0;
+    }
+
+    .card-chat-panel {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .card-chat-panel .chat-scroll,
+    .card-chat-panel .chat-bubble {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .card-chat-panel .chat-bubble p,
+    .card-chat-panel .chat-bubble span,
+    .card-chat-panel .chat-bubble pre {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .card-chat-panel .chat-input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .card-chat-panel .chat-input-row input,
+    .card-chat-panel .chat-input-row button {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .terminal-output .terminal-line.thinking .line-header .line-content {
+      color: #FF9500;
+    }
+
+    .terminal-output .terminal-line.thinking .line-header .cursor {
+      display: inline;
+    }
+
+    .terminal-output .terminal-line .cursor {
+      animation: blink 1s infinite;
+      color: #34C759;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* 任务详情终端容器 */
+    .terminal-container {
+      background: #F5F5F7 !important;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .terminal-container .text-\[\#ACYFCD\] {
+      color: #1D1D1F !important;
+    }
+
+    .terminal-container .text-\[\#5A5A5E\] {
+      color: #86868B !important;
+    }
+
+    .active-task-card {
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.02);
+      border: 1px solid #E5E5EA;
+      transition: all 0.5s ease;
+    }
+
+    .active-task-card:hover {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    .badge {
+      background: #F5F5F7;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 任务标签 */
+    .task-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .btn-primary {
+      background: #0071E3;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #0077ED;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-dot.green { background: #34C759; }
+    .status-dot.red { background: #FF3B30; }
+    .status-dot.yellow { background: #FFD60A; }
+
+    .pulse-dot {
+      animation: pulse-animation 2s infinite;
+    }
+
+    @keyframes pulse-animation {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .empty-state {
+      border: 2px dashed #E5E5EA;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 720px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 28px;
+      bottom: -12px;
+      width: 2px;
+      background: #E5E5EA;
+    }
+
+    .timeline-item:last-child::before {
+      display: none;
+    }
+
+    .kanban-scroll {
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-bottom: 16px;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .kanban-column {
+      flex: 1;
+      min-width: 160px;
+    }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen">
+    <!-- 顶部导航栏 -->
+    <header class="glass-header sticky top-0 z-30 border-b border-[#E5E5EA] px-6 py-2.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-[#1D1D1F] p-2 rounded-xl">
+          <i class="fas fa-robot text-white text-sm"></i>
+        </div>
+        <h1 class="text-xl font-semibold tracking-tight">
+          白白板 <span class="font-normal text-[#86868B] ml-1">AI Agent 工作台</span>
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div id="ws-status" class="flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F7] rounded-full text-[13px] font-medium">
+          <div class="w-2 h-2 rounded-full bg-[#FF3B30]"></div>
+          已断开
+        </div>
+        <div id="scheduler-status" class="flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F7] rounded-full text-[13px] font-medium">
+          <div class="w-2 h-2 rounded-full bg-[#34C759]"></div>
+          调度器已停止
+        </div>
+        <div class="w-[1px] h-4 bg-[#D1D1D6] mx-1"></div>
+        <button onclick="refreshAll()" class="p-2 text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#E5E5EA] rounded-full transition-colors">
+          <i class="fas fa-rotate-right"></i>
+        </button>
+        <button onclick="toggleSelectMode()" id="select-mode-btn" class="p-2 text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#E5E5EA] rounded-full transition-colors">
+          <i class="fas fa-check-square"></i>
+        </button>
+        <button onclick="openCreateTask()" class="btn-primary">
+          <i class="fas fa-plus"></i>
+          新任务
+        </button>
+      </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="max-w-[1600px] mx-auto p-4 space-y-6">
+
+      <!-- 批量操作栏 -->
+      <div id="batch-action-bar" class="hidden bg-[#F5F5F7] rounded-xl p-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-[13px] font-medium text-[#1D1D1F]">已选择 <span id="selected-count">0</span> 个任务</span>
+          <button onclick="selectedTasks.clear(); toggleSelectMode();" class="text-[13px] text-[#86868B] hover:text-[#1D1D1F]">
+            取消选择
+          </button>
+        </div>
+        <button id="batch-delete-btn" onclick="batchDeleteTasks()" class="hidden items-center gap-2 px-4 py-2 bg-[#FF3B30] text-white text-[13px] font-medium rounded-lg hover:bg-[#D63023] transition-colors">
+          <i class="fas fa-trash"></i>
+          批量删除
+        </button>
+      </div>
+
+      <!-- 数据统计概览 -->
+      <section class="grid grid-cols-4 gap-4">
+        <div class="stat-card p-4 flex flex-col justify-between gap-2">
+          <i class="fas fa-list-check text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">总任务</p>
+            <p id="stat-tasks" class="text-3xl font-semibold tracking-tighter text-[#1D1D1F]">0</p>
+          </div>
+        </div>
+
+        <button type="button" class="stat-card p-4 flex flex-col justify-between gap-2 text-left cursor-pointer" onclick="openAgentBrowser()">
+          <i class="fas fa-robot text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">在线 Agent</p>
+            <p id="stat-agents" class="text-4xl font-semibold tracking-tighter text-[#1D1D1F]">0/0</p>
+            <span class="text-[10px] text-[#86868B]">点击管理</span>
+          </div>
+        </button>
+
+        <div class="stat-card p-4 flex flex-col justify-between gap-2">
+          <i class="fas fa-play text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">执行中</p>
+            <p id="stat-active" class="text-3xl font-semibold tracking-tighter text-[#1D1D1F]">0</p>
+          </div>
+        </div>
+
+        <div class="stat-card p-4 flex flex-col justify-between gap-2">
+          <i class="fas fa-database text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">容量</p>
+            <div class="flex items-center gap-2">
+              <button onclick="adjustCapacity(-1)" class="w-6 h-6 rounded-full bg-[#E5E5EA] hover:bg-[#D1D1D6] text-[#1D1D1F] font-medium text-sm flex items-center justify-center">−</button>
+              <span id="stat-capacity" class="text-2xl font-semibold tracking-tighter text-[#1D1D1F] min-w-[50px] text-center">0/5</span>
+              <button onclick="adjustCapacity(1)" class="w-6 h-6 rounded-full bg-[#E5E5EA] hover:bg-[#D1D1D6] text-[#1D1D1F] font-medium text-sm flex items-center justify-center">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card p-4 flex flex-col justify-between gap-2 cursor-pointer" onclick="openKnowledgeBrowser('wiki')">
+          <i class="fas fa-book text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">Wiki</p>
+            <span id="stat-wiki" class="text-2xl font-semibold tracking-tighter text-[#1D1D1F] min-w-[30px] text-center">0</span>
+            <span class="text-[10px] text-[#86868B]">点击查看详情</span>
+          </div>
+        </div>
+
+        <div class="stat-card p-4 flex flex-col justify-between gap-2 cursor-pointer" onclick="openKnowledgeBrowser('skill')">
+          <i class="fas fa-lightbulb text-[#86868B] text-lg"></i>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-[12px] font-medium text-[#86868B]">Skill</p>
+            <span id="stat-skill" class="text-2xl font-semibold tracking-tighter text-[#1D1D1F] min-w-[30px] text-center">0</span>
+            <span id="stat-skill-meta" class="text-[10px] text-[#86868B]">点击查看详情</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 正在执行的任务 -->
+      <section>
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-[14px] font-semibold tracking-tight">执行中的任务</h2>
+        </div>
+        <div id="active-tasks-container">
+          <!-- 动态生成 -->
+        </div>
+      </section>
+
+      <!-- 任务看板 -->
+      <section class="kanban-scroll">
+        <div id="board" class="flex gap-4">
+          <!-- 动态生成 -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- 创建任务模态框 -->
+  <div class="modal-overlay" id="create-modal">
+    <div class="modal">
+      <div class="px-6 py-4 border-b border-[#E5E5EA] flex justify-between items-center">
+        <h2 class="text-lg font-semibold">创建新任务</h2>
+        <button onclick="closeModal('create-modal')" class="text-[#86868B] hover:text-[#1D1D1F] text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <form onsubmit="createTask(event)">
+          <div class="mb-4">
+            <label class="block text-[14px] font-medium text-[#86868B] mb-2">任务标题 *</label>
+            <input type="text" id="task-title" required placeholder="输入任务标题"
+              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[15px] focus:outline-none focus:border-[#0071E3]">
+          </div>
+          <div class="mb-4">
+            <label class="block text-[14px] font-medium text-[#86868B] mb-2">任务描述</label>
+            <textarea id="task-desc" rows="3" placeholder="输入任务描述（可选）"
+              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[15px] focus:outline-none focus:border-[#0071E3] resize-none"></textarea>
+          </div>
+          <div class="mb-4">
+            <label class="block text-[14px] font-medium text-[#86868B] mb-2">操作文件夹 / 资料路径</label>
+            <input type="text" id="task-operation-folder" placeholder="/Users/linhao/Desktop/项目目录"
+              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[15px] focus:outline-none focus:border-[#0071E3]">
+            <p class="mt-2 text-[12px] text-[#86868B]">如果任务只应该在某个目录内查看资料或改文件，这里填绝对路径。</p>
+          </div>
+          <div class="flex gap-3 justify-end mt-6">
+            <button type="button" onclick="closeModal('create-modal')"
+              class="px-5 py-2.5 text-[14px] font-medium text-[#86868B] hover:bg-[#F5F5F7] rounded-full transition-colors">
+              取消
+            </button>
+            <button type="submit" class="btn-primary">
+              创建
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务详情模态框 -->
+  <div class="modal-overlay" id="task-modal">
+    <div class="modal">
+      <div class="px-6 py-4 border-b border-[#E5E5EA] flex justify-between items-center">
+        <h2 class="text-lg font-semibold">任务详情</h2>
+        <button onclick="closeModal('task-modal')" class="text-[#86868B] hover:text-[#1D1D1F] text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6" id="task-detail-content">
+        <!-- 动态生成 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Wiki / Skill 详情模态框 -->
+  <div class="modal-overlay" id="knowledge-modal">
+    <div class="modal">
+      <div class="px-6 py-4 border-b border-[#E5E5EA] flex justify-between items-center">
+        <h2 class="text-lg font-semibold" id="knowledge-modal-title">知识详情</h2>
+        <button onclick="closeModal('knowledge-modal')" class="text-[#86868B] hover:text-[#1D1D1F] text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6" id="knowledge-modal-content">
+        <!-- 动态生成 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent 管理模态框 -->
+  <div class="modal-overlay" id="agent-modal">
+    <div class="modal">
+      <div class="px-6 py-4 border-b border-[#E5E5EA] flex justify-between items-center">
+        <h2 class="text-lg font-semibold" id="agent-modal-title">Agent 管理</h2>
+        <button onclick="closeModal('agent-modal')" class="text-[#86868B] hover:text-[#1D1D1F] text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6" id="agent-modal-content">
+        <!-- 动态生成 -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin
+    let currentTask = null
+    let ws = null
+    let selectedTasks = new Set() // 批量选择的任务
+    let reconnectTimer = null
+    let currentBoard = null // 当前看板数据
+    let currentAgents = null // 当前 Agent 列表
+    let currentScheduler = null // 当前调度器状态
+    const PAGE_SIZE = 20 // 每页显示任务数
+    let taskPages = {} // 每列的当前页码
+    let expandedDoneTasks = new Set() // Done 清单中展开的主任务 ID
+    let expandedDetailSubTasks = new Set() // 详情弹窗中展开的父任务 ID
+    let knowledgeCache = { wiki: [], skill: [] }
+    let agentCache = { agents: [], skills: [] }
+    let editingAgentId = null
+    let openCardChats = new Set()
+    let cardChatDrafts = {}
+    let detailRefreshTimer = null
+    let realtimeRefreshTimer = null
+    let lazyStatsTimer = null
+    let lazyAgentsTimer = null
+    let lastLazyStatsAt = 0
+    let lastLazyAgentsAt = 0
+
+    const LAZY_STATS_TTL = 5000
+    const LAZY_AGENTS_TTL = 30000
+    const TERMINAL_TASK_STATUSES = new Set(['Done', 'Cancelled', 'Duplicate'])
+
+    // 状态配置（无阻塞列，任务持续运行直到完成）
+    const STATUSES = [
+      { id: 'Backlog', label: '待处理', color: '#86868B' },
+      { id: 'Analyzing', label: '分析中', color: '#AF52DE' },
+      { id: 'Collecting', label: '待补充', color: '#FF3B30' },
+      { id: 'InDev', label: '开发中', color: '#0071E3' },
+      { id: 'ReadyForTest', label: '待测试', color: '#FFD60A' },
+      { id: 'InFix', label: '修复中', color: '#FF9500' },
+      { id: 'Blocked', label: '阻塞', color: '#FF2D55' },
+      { id: 'ReadyForDeploy', label: '待验证', color: '#30D158' },
+      { id: 'Done', label: '已完成', color: '#34C759' }
+    ]
+
+    // API 请求
+    async function api(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json' }
+      let body = options.body
+      if (body && typeof body === 'object') {
+        body = JSON.stringify(body)
+      }
+      const res = await fetch(`${API_BASE}${path}`, {
+        headers,
+        ...options,
+        body
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || `请求失败 (${res.status})`)
+      }
+      return data
+    }
+
+    // WebSocket 连接
+    function connectWS() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${protocol}//${window.location.host}/ws`
+
+      try {
+        ws = new WebSocket(wsUrl)
+
+        ws.onopen = () => {
+          updateWSStatus(true)
+        }
+
+        ws.onclose = () => {
+          updateWSStatus(false)
+          scheduleReconnect()
+        }
+
+        ws.onerror = () => {
+          updateWSStatus(false)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            handleWSEvent(data)
+          } catch (e) {}
+        }
+      } catch (e) {
+        updateWSStatus(false)
+        scheduleReconnect()
+      }
+    }
+
+    function updateWSStatus(connected) {
+      const el = document.getElementById('ws-status')
+      if (connected) {
+        el.innerHTML = '<div class="w-2 h-2 rounded-full bg-[#34C759]"></div>已连接'
+      } else {
+        el.innerHTML = '<div class="w-2 h-2 rounded-full bg-[#FF3B30]"></div>已断开'
+      }
+    }
+
+    function updateSchedulerStatus(data) {
+      const el = document.getElementById('scheduler-status')
+      if (data && data.running) {
+        el.innerHTML = '<div class="w-2 h-2 rounded-full bg-[#34C759]"></div>调度器运行中'
+      } else {
+        el.innerHTML = '<div class="w-2 h-2 rounded-full bg-[#FF3B30]"></div>调度器已停止'
+      }
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      reconnectTimer = setTimeout(connectWS, 5000)
+    }
+
+    function scheduleRealtimeRefresh(options = {}) {
+      const delay = options.immediate ? 0 : (options.delay ?? 120)
+      if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer)
+      realtimeRefreshTimer = setTimeout(() => {
+        realtimeRefreshTimer = null
+        refreshAll()
+      }, delay)
+    }
+
+    function handleWSEvent(data) {
+      switch (data.type) {
+        case 'task_updated':
+        case 'task_message':
+        case 'task_output':
+        case 'scheduler_status':
+          scheduleRealtimeRefresh()
+          break
+        case 'agent_updated':
+          scheduleRealtimeRefresh({ immediate: true })
+          scheduleLazyAgentsRefresh({ immediate: true })
+          scheduleLazyStatsRefresh({ immediate: true })
+          break
+      }
+
+      if (currentTask && data.taskId && currentTask.id === data.taskId) {
+        if (detailRefreshTimer) clearTimeout(detailRefreshTimer)
+        detailRefreshTimer = setTimeout(() => {
+          const modal = document.getElementById('task-modal')
+          if (modal && modal.classList.contains('active')) {
+            openTaskDetail(currentTask.id)
+          }
+        }, 150)
+      }
+    }
+
+    // 调整容量
+    async function adjustCapacity(delta) {
+      try {
+        const schedulerRes = currentScheduler || await api('/api/scheduler/status')
+        const current = schedulerRes.maxConcurrentAgents || 5
+        const newCapacity = Math.max(1, Math.min(20, current + delta))
+        await api('/api/scheduler/capacity', {
+          method: 'PATCH',
+          body: { maxConcurrentAgents: newCapacity }
+        })
+        // 更新显示
+        const activeCount = schedulerRes.activeCount || 0
+        document.getElementById('stat-capacity').textContent = `${activeCount}/${newCapacity}`
+        scheduleLazyStatsRefresh({ immediate: true })
+      } catch (e) {
+        console.error('调整容量失败:', e)
+      }
+    }
+
+    // 切换 Done 清单中任务的展开/折叠状态
+    function toggleDoneExpand(taskId) {
+      if (expandedDoneTasks.has(taskId)) {
+        expandedDoneTasks.delete(taskId)
+      } else {
+        expandedDoneTasks.add(taskId)
+      }
+      // 重新渲染看板（会重新应用过滤逻辑）
+      if (currentBoard) {
+        renderBoard(currentBoard, currentAgents)
+      }
+    }
+
+    function toggleDetailSubTasks(taskId) {
+      if (expandedDetailSubTasks.has(taskId)) {
+        expandedDetailSubTasks.delete(taskId)
+      } else {
+        expandedDetailSubTasks.add(taskId)
+      }
+
+      if (currentTask && currentTask.id === taskId) {
+        openTaskDetail(taskId)
+      }
+    }
+
+    // 获取 Done 清单中任务的子任务列表
+    function getSubTasksForDone(parentId) {
+      if (!currentBoard || !currentBoard.Done) return []
+      return currentBoard.Done.filter(t => t.parentTaskId === parentId)
+    }
+
+    // 刷新全部
+    function countBoardTasks(board) {
+      if (!board || typeof board !== 'object') return 0
+      return Object.values(board).reduce((sum, tasks) => sum + (Array.isArray(tasks) ? tasks.length : 0), 0)
+    }
+
+    function renderQuickStats(board, scheduler, agents = currentAgents || []) {
+      document.getElementById('stat-tasks').textContent = countBoardTasks(board)
+      document.getElementById('stat-agents').textContent = Array.isArray(agents)
+        ? `${agents.filter(agent => agent.status !== 'offline').length}/${agents.length}`
+        : '…/…'
+
+      if (scheduler) {
+        document.getElementById('stat-active').textContent = scheduler.activeCount || 0
+        document.getElementById('stat-capacity').textContent = `${scheduler.activeCount || 0}/${scheduler.maxConcurrentAgents || 5}`
+      }
+    }
+
+    async function refreshCoreData() {
+      const [boardRes, schedulerRes] = await Promise.all([
+        api('/api/board'),
+        api('/api/scheduler/status').catch(() => null)
+      ])
+
+      currentBoard = boardRes.board
+      currentScheduler = schedulerRes
+      renderBoard(boardRes.board, currentAgents || [])
+      renderQuickStats(boardRes.board, schedulerRes, currentAgents)
+      renderActiveTasks(schedulerRes, currentAgents || [])
+      updateSchedulerStatus(schedulerRes)
+
+      return { boardRes, schedulerRes }
+    }
+
+    function scheduleLazyStatsRefresh(options = {}) {
+      const now = Date.now()
+      if (!options.immediate && now - lastLazyStatsAt < LAZY_STATS_TTL) return
+      const delay = options.immediate ? 0 : 150
+      if (lazyStatsTimer) clearTimeout(lazyStatsTimer)
+      lazyStatsTimer = setTimeout(async () => {
+        lazyStatsTimer = null
+        try {
+          const statsRes = await api('/api/stats')
+          lastLazyStatsAt = Date.now()
+          renderStats(statsRes, currentScheduler)
+        } catch (e) {
+          console.error('延迟刷新 stats 失败:', e)
+        }
+      }, delay)
+    }
+
+    function scheduleLazyAgentsRefresh(options = {}) {
+      const now = Date.now()
+      if (!options.immediate && currentAgents && now - lastLazyAgentsAt < LAZY_AGENTS_TTL) return
+      const delay = options.immediate ? 0 : 300
+      if (lazyAgentsTimer) clearTimeout(lazyAgentsTimer)
+      lazyAgentsTimer = setTimeout(async () => {
+        lazyAgentsTimer = null
+        try {
+          const agentsRes = await api('/api/agents')
+          lastLazyAgentsAt = Date.now()
+          renderAgents(agentsRes.agents)
+          if (currentBoard) {
+            renderBoard(currentBoard, currentAgents || [])
+          }
+          renderQuickStats(currentBoard, currentScheduler, currentAgents)
+          renderActiveTasks(currentScheduler, currentAgents || [])
+        } catch (e) {
+          console.error('延迟刷新 agents 失败:', e)
+        }
+      }, delay)
+    }
+
+    async function refreshAll() {
+      try {
+        await refreshCoreData()
+        scheduleLazyStatsRefresh()
+        scheduleLazyAgentsRefresh()
+      } catch (e) {
+        console.error('刷新失败:', e)
+      }
+    }
+
+    // 渲染活跃任务（简化版：只显示 agent 小卡片）
+    function renderActiveTasks(scheduler, agents = []) {
+      const container = document.getElementById('active-tasks-container')
+
+      if (!scheduler || !scheduler.activeTasks || scheduler.activeTasks.length === 0) {
+        container.innerHTML = `
+          <div class="flex items-center justify-center h-full">
+            <span class="text-[14px] font-medium text-[#86868B]">暂无执行中的任务</span>
+          </div>
+        `
+        return
+      }
+
+      container.innerHTML = `
+        <div class="flex flex-wrap gap-2 items-center">
+          ${scheduler.activeTasks.map(task => {
+            const agent = agents.find(a => a.name === task.agentName || a.role === task.agentName)
+            const agentDisplayName = agent ? (agent.description || agent.name) : task.agentName
+            const modeLabel = task.mode === 'live' ? '实时会话' : task.mode === 'analysis' ? '分析中' : task.mode === 'verification' ? '验证中' : '执行中'
+            const activityHint = task.currentTool
+              ? ` · ${task.currentTool}`
+              : task.isResponding
+                ? ' · 回复中'
+                : task.pendingAssistantText
+                  ? ' · 正在整理输出'
+                  : ''
+            return `
+              <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm">
+                <div class="w-2 h-2 bg-[#34C759] rounded-full animate-pulse"></div>
+                <i class="fas fa-robot text-[#86868B] text-xs"></i>
+                <span class="text-[13px] font-medium text-[#1D1D1F]">${escapeHtml(agentDisplayName)}</span>
+                <span class="text-[10px] text-[#86868B]">${modeLabel}${activityHint}</span>
+              </div>
+            `
+          }).join('')}
+        </div>
+      `
+    }
+
+    function getRuntimeSession(task) {
+      return task?.runtimeSession || task?.liveSession || null
+    }
+
+    function getRuntimePendingText(task) {
+      return String(getRuntimeSession(task)?.pendingAssistantText || '').trim()
+    }
+
+    function getTaskMessageDisplay(message) {
+      const kind = message?.kind || message?.role || 'system'
+
+      if (kind === 'user') {
+        return { label: '你', labelColor: '#0071E3', bgClass: 'bg-[#E8F2FF]', textClass: 'text-[#1D1D1F]' }
+      }
+      if (kind === 'assistant') {
+        return { label: 'Agent', labelColor: '#34C759', bgClass: 'bg-[#EEF8F0]', textClass: 'text-[#1D1D1F]' }
+      }
+      if (kind === 'tool_use') {
+        return {
+          label: message?.meta?.toolName ? `工具 ${message.meta.toolName}` : '工具调用',
+          labelColor: '#C27C00',
+          bgClass: 'bg-[#FFF9E8]',
+          textClass: 'text-[#7A5200]'
+        }
+      }
+      if (kind === 'tool_result') {
+        return {
+          label: message?.meta?.toolName ? `结果 ${message.meta.toolName}` : '工具结果',
+          labelColor: '#0A84FF',
+          bgClass: 'bg-[#F0F7FF]',
+          textClass: 'text-[#1D1D1F]'
+        }
+      }
+
+      return { label: '系统', labelColor: '#86868B', bgClass: 'bg-[#F5F5F7]', textClass: 'text-[#1D1D1F]' }
+    }
+
+    function renderTaskMessages(task, limit = 4, compact = false) {
+      const runtimeSession = getRuntimeSession(task)
+      const pendingAssistantText = getRuntimePendingText(task)
+      const currentTool = runtimeSession?.currentTool
+      const messages = (task.messages || []).slice(-limit)
+
+      if (messages.length === 0 && !pendingAssistantText && !currentTool) {
+        return `<p class="text-[11px] text-[#86868B] text-center py-2">${compact ? '暂无对话' : '发送消息后会在这里显示最近对话'}</p>`
+      }
+
+      const renderedMessages = messages.map(message => {
+        const display = getTaskMessageDisplay(message)
+        const textClass = compact ? 'text-[10px]' : 'text-[12px]'
+        const meta = message.meta?.live ? ' · 实时' : ''
+        return `
+          <div class="chat-bubble rounded-lg px-2.5 py-2 ${display.bgClass}">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[10px] font-medium" style="color: ${display.labelColor}">${escapeHtml(display.label)}${meta}</span>
+              <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(message.createdAt)}</span>
+            </div>
+            <p class="${textClass} ${display.textClass} whitespace-pre-wrap break-all">${escapeHtml(message.content)}</p>
+          </div>
+        `
+      }).join('')
+
+      const currentToolHtml = currentTool && !pendingAssistantText ? `
+        <div class="chat-bubble rounded-lg px-2.5 py-2 bg-[#FFF9E8] border border-[#F3D28C]">
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <span class="text-[10px] font-medium text-[#C27C00]">正在使用 ${escapeHtml(currentTool.name || '工具')}</span>
+            <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(runtimeSession?.lastActivity || new Date().toISOString())}</span>
+          </div>
+          ${currentTool.detail ? `<p class="${compact ? 'text-[10px]' : 'text-[12px]'} text-[#7A5200] whitespace-pre-wrap break-all">${escapeHtml(currentTool.detail)}</p>` : ''}
+        </div>
+      ` : ''
+
+      const pendingHtml = pendingAssistantText ? `
+        <div class="chat-bubble rounded-lg px-2.5 py-2 bg-[#EEF8F0] border border-[#CDEFD7]">
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <span class="text-[10px] font-medium text-[#34C759]">${runtimeSession?.mode === 'live' ? 'Agent 回复中' : 'Agent 输出中'}${currentTool?.name ? ` · ${escapeHtml(currentTool.name)}` : ''}</span>
+            <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(runtimeSession?.lastActivity || new Date().toISOString())}</span>
+          </div>
+          <p class="${compact ? 'text-[10px]' : 'text-[12px]'} text-[#1D1D1F] whitespace-pre-wrap break-all">${escapeHtml(pendingAssistantText)} ▋</p>
+        </div>
+      ` : ''
+
+      return renderedMessages + currentToolHtml + pendingHtml
+    }
+
+    function renderTaskActivityFeed(task, outputLines = [], limit = 18) {
+      const runtimeSession = getRuntimeSession(task)
+      const pendingAssistantText = getRuntimePendingText(task)
+      const messages = Array.isArray(task.messages) ? task.messages : []
+      const messageContents = new Set(
+        messages
+          .map(message => String(message?.content || '').trim())
+          .filter(Boolean)
+      )
+
+      const activityItems = [
+        ...messages.map(message => ({
+          type: 'message',
+          time: message.createdAt,
+          message
+        })),
+        ...(outputLines || [])
+          .filter(line => {
+            const content = String(line?.content || '').trim()
+            if (!content) return false
+            if (content.startsWith('[用户消息]')) return false
+            if (messageContents.has(content)) return false
+            return true
+          })
+          .map(line => ({
+            type: 'output',
+            time: line.timestamp,
+            content: line.content
+          }))
+      ]
+        .sort((a, b) => new Date(a.time) - new Date(b.time))
+        .slice(-limit)
+
+      if (activityItems.length === 0 && !task.currentOutput && !pendingAssistantText && !runtimeSession?.currentTool) {
+        return '<p class="text-[12px] text-[#86868B] text-center py-3">暂无信息，发送消息后会在这里合并显示对话和执行输出。</p>'
+      }
+
+      const renderedItems = activityItems.map(item => {
+        if (item.type === 'message') {
+          const message = item.message
+          const display = getTaskMessageDisplay(message)
+          return `
+            <div class="rounded-lg px-3 py-2 ${display.bgClass}">
+              <div class="flex items-center justify-between mb-1 gap-2">
+                <span class="text-[11px] font-medium" style="color: ${display.labelColor}">${escapeHtml(display.label)}${message.meta?.live ? ' · 实时' : ''}</span>
+                <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(message.createdAt)}</span>
+              </div>
+              <p class="text-[12px] ${display.textClass} whitespace-pre-wrap break-all">${escapeHtml(message.content)}</p>
+            </div>
+          `
+        }
+
+        const isCodeBlock = item.content.includes('```') || item.content.includes('"subTasks":') || item.content.includes('"summary":')
+        return `
+          <div class="rounded-lg px-3 py-2 bg-[#F5F5F7] border border-[#E5E5EA]">
+            <div class="flex items-center justify-between mb-1 gap-2">
+              <span class="text-[11px] font-medium text-[#8E8E93]">信息流</span>
+              <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(item.time)}</span>
+            </div>
+            ${isCodeBlock
+              ? `<pre class="text-[10px] text-[#1D1D1F] whitespace-pre-wrap break-all font-mono">${escapeHtml(item.content)}</pre>`
+              : `<p class="text-[11px] text-[#1D1D1F] whitespace-pre-wrap break-all font-mono">${escapeHtml(item.content)}</p>`
+            }
+          </div>
+        `
+      }).join('')
+
+      const currentToolHtml = runtimeSession?.currentTool && !pendingAssistantText ? `
+        <div class="rounded-lg px-3 py-2 bg-[#FFF9E8] border border-[#F3D28C]">
+          <div class="flex items-center justify-between mb-1 gap-2">
+            <span class="text-[11px] font-medium text-[#C27C00]">正在使用工具 ${escapeHtml(runtimeSession.currentTool.name || '')}</span>
+            <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(runtimeSession?.lastActivity || new Date().toISOString())}</span>
+          </div>
+          ${runtimeSession.currentTool.detail ? `<p class="text-[11px] text-[#7A5200] whitespace-pre-wrap break-all">${escapeHtml(runtimeSession.currentTool.detail)}</p>` : ''}
+        </div>
+      ` : ''
+
+      const pendingAssistantHtml = pendingAssistantText ? `
+        <div class="rounded-lg px-3 py-2 bg-[#EEF8F0] border border-[#CDEFD7]">
+          <div class="flex items-center justify-between mb-1 gap-2">
+            <span class="text-[11px] font-medium text-[#34C759]">${runtimeSession?.mode === 'live' ? 'Agent 回复中' : 'Agent 输出中'}${runtimeSession?.currentTool?.name ? ` · ${escapeHtml(runtimeSession.currentTool.name)}` : ''}</span>
+            <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(runtimeSession?.lastActivity || new Date().toISOString())}</span>
+          </div>
+          <p class="text-[11px] text-[#1D1D1F] whitespace-pre-wrap break-all font-mono">${escapeHtml(pendingAssistantText)} ▋</p>
+        </div>
+      ` : ''
+
+      const currentOutputHtml = !pendingAssistantText && task.currentOutput && !activityItems.some(item => {
+        if (item.type === 'message') {
+          return item.message?.content === task.currentOutput
+        }
+        return item.content === task.currentOutput
+      })
+        ? `
+          <div class="rounded-lg px-3 py-2 bg-[#EEF8F0] border border-[#CDEFD7]">
+            <div class="flex items-center justify-between mb-1 gap-2">
+              <span class="text-[11px] font-medium text-[#34C759]">实时输出</span>
+              <span class="text-[10px] text-[#86868B] flex-shrink-0">刚刚</span>
+            </div>
+            <p class="text-[11px] text-[#1D1D1F] whitespace-pre-wrap break-all font-mono">${escapeHtml(task.currentOutput)}${runtimeSession?.isResponding ? ' ▋' : ''}</p>
+          </div>
+        `
+        : ''
+
+      return renderedItems + currentToolHtml + pendingAssistantHtml + currentOutputHtml
+    }
+
+    function renderCardChatPanel(task) {
+      if (!openCardChats.has(task.id)) return ''
+
+      const liveSession = task.liveSession
+      const runtimeSession = getRuntimeSession(task)
+      const draft = cardChatDrafts[task.id] || ''
+      const statusText = liveSession?.active
+        ? `${liveSession.agentName || 'Agent'}${liveSession.isResponding ? ' 正在回复…' : ' 在线'}`
+        : runtimeSession?.active
+          ? `${runtimeSession.agentName || 'Agent'} ${runtimeSession.mode === 'analysis' ? '分析中' : runtimeSession.mode === 'verification' ? '验证中' : '执行中'}${runtimeSession.currentTool?.name ? ` · ${runtimeSession.currentTool.name}` : ''}`
+          : '输入后自动开启实时会话'
+
+      return `
+        <div class="card-chat-panel mt-2 pt-2 border-t border-[#E5E5EA]" onclick="event.stopPropagation()">
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="text-[10px] font-medium ${(liveSession?.active || runtimeSession?.active) ? 'text-[#34C759]' : 'text-[#86868B]'}">${liveSession?.active ? '实时会话中' : runtimeSession?.active ? '运行中' : '准备对话'}</span>
+              <span class="text-[10px] text-[#86868B] truncate">${escapeHtml(statusText)}</span>
+            </div>
+            ${liveSession?.active ? `
+              <button type="button" onclick="stopCardLiveSession('${task.id}')" class="text-[10px] text-[#FF3B30] hover:underline flex-shrink-0">结束</button>
+            ` : ''}
+          </div>
+          <div class="chat-scroll flex flex-col gap-1.5 max-h-[160px] overflow-y-auto mb-2">
+            ${renderTaskMessages(task, 4, true)}
+            ${liveSession?.active && liveSession.isResponding && !getRuntimePendingText(task) ? `
+              <div class="chat-bubble rounded-lg px-2.5 py-2 bg-[#FFF9E8]">
+                <p class="text-[10px] text-[#C27C00]">Agent 正在回复，请稍等…</p>
+              </div>
+            ` : ''}
+          </div>
+          <div class="chat-input-row">
+            <input
+              type="text"
+              id="card-chat-input-${task.id}"
+              value="${escapeAttr(draft)}"
+              placeholder="${liveSession?.active ? '继续对话…' : '直接输入，自动开始实时会话'}"
+              class="px-2.5 py-2 text-[11px] border border-[#E5E5EA] rounded-lg focus:outline-none focus:border-[#0071E3]"
+              oninput="updateCardChatDraft('${task.id}', this.value)"
+              onkeypress="if(event.key==='Enter') sendCardLiveMessage('${task.id}')"
+            >
+            <button type="button" onclick="sendCardLiveMessage('${task.id}')" class="px-3 py-2 bg-[#0071E3] text-white text-[11px] rounded-lg hover:bg-[#0077ED]">
+              发送
+            </button>
+          </div>
+        </div>
+      `
+    }
+
+    function renderDetailSubTasks(task, subTasks = []) {
+      if (!subTasks.length) return ''
+
+      const isExpanded = expandedDetailSubTasks.has(task.id)
+      const visibleSubTasks = isExpanded ? subTasks : subTasks.slice(0, 5)
+      const doneCount = subTasks.filter(st => st.status === 'Done').length
+
+      return `
+        <div class="mb-3">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <p class="text-[11px] text-[#86868B]">子任务进度 (${doneCount}/${subTasks.length})</p>
+            ${subTasks.length > 5 ? `
+              <button
+                type="button"
+                onclick="toggleDetailSubTasks('${task.id}')"
+                class="text-[10px] text-[#0071E3] hover:underline flex-shrink-0"
+              >
+                ${isExpanded ? '收起' : `展开全部 (${subTasks.length})`}
+              </button>
+            ` : ''}
+          </div>
+          <div class="flex flex-col gap-1.5">
+            ${visibleSubTasks.map(st => {
+              const stStatus = STATUSES.find(s => s.id === st.status) || { label: st.status, color: '#86868B' }
+              const stTag = st.taskTag
+              const stTagColor = getTagColor(stTag)
+              return `
+                <button
+                  type="button"
+                  onclick="openTaskDetail('${st.id}')"
+                  class="flex items-center justify-between bg-[#F5F5F7] p-2 rounded-lg hover:bg-[#EDEDF0] text-left w-full"
+                >
+                  <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                    ${stTag ? `<span class="task-tag" style="background: ${stTagColor}">${stTag}</span>` : ''}
+                    <span class="text-[11px] text-[#1D1D1F] truncate">${escapeHtml(st.title)}</span>
+                  </div>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full ml-2" style="background: ${stStatus.color}20; color: ${stStatus.color}">${stStatus.label}</span>
+                </button>
+              `
+            }).join('')}
+            ${subTasks.length > 5 && !isExpanded ? `
+              <button
+                type="button"
+                onclick="toggleDetailSubTasks('${task.id}')"
+                class="text-[10px] text-[#86868B] text-center hover:text-[#0071E3]"
+              >
+                还有 ${subTasks.length - visibleSubTasks.length} 个子任务，点击展开
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `
+    }
+
+    // 渲染看板
+    function renderBoard(board, agents = []) {
+      currentBoard = board
+      currentAgents = agents
+      // 初始化页码
+      STATUSES.forEach(s => { if (!(s.id in taskPages)) taskPages[s.id] = 1 })
+
+      const boardEl = document.getElementById('board')
+
+      boardEl.innerHTML = STATUSES.map(status => {
+        let allTasks = board[status.id] || []
+
+        // Done 列：只显示主任务（不含子任务）
+        if (status.id === 'Done') {
+          allTasks = allTasks.filter(t => !t.parentTaskId)
+        }
+
+        const currentPage = taskPages[status.id] || 1
+        const totalPages = Math.ceil(allTasks.length / PAGE_SIZE) || 1
+        const startIdx = (currentPage - 1) * PAGE_SIZE
+        const tasks = allTasks.slice(startIdx, startIdx + PAGE_SIZE)
+
+        return `
+          <div class="kanban-column">
+            <div class="flex justify-between items-center mb-2 px-1">
+              <h3 class="font-semibold text-[#1D1D1F] text-[12px] tracking-tight">${status.label}</h3>
+              <span class="bg-[#E5E5EA] text-[#1D1D1F] text-[10px] font-medium px-1 py-0.5 rounded-full">
+                ${allTasks.length}
+              </span>
+            </div>
+            <div class="flex flex-col gap-1.5 pr-1">
+              ${tasks.length === 0 ? `
+                <div class="empty-state h-[60px] flex flex-col items-center justify-center">
+                  <span class="text-[11px] font-medium text-[#86868B]">无</span>
+                </div>
+              ` : ''}
+              ${tasks.map(task => {
+                const agent = task.assignedAgentId ? agents.find(a => a.id === task.assignedAgentId) : null
+                const agentName = agent ? (agent.description || agent.name) : null
+                const hasSubTasks = task.subTaskIds && task.subTaskIds.length > 0
+                const isSubTask = task.parentTaskId
+                const isSelected = selectedTasks.has(task.id)
+                const checkboxClass = isSelected ? 'fa-check-square' : 'fa-square'
+                const currentOutput = task.currentOutput || ''
+                const liveSession = task.liveSession
+                const runtimeSession = getRuntimeSession(task)
+                const pendingAssistantText = getRuntimePendingText(task)
+                const isActive = Boolean(runtimeSession?.active) || task.status === 'InDev' || task.status === 'Analyzing'
+                const isStreamingOutput = runtimeSession?.active ? runtimeSession.isResponding : isActive
+                const outputLines = task.outputLines || []
+                const displayLines = isActive ? outputLines.slice(-8) : outputLines.slice(-3) // 活跃时显示更多
+                const previewLines = [...displayLines]
+                if (pendingAssistantText && !previewLines.some(line => String(line?.content || '').trim() === pendingAssistantText)) {
+                  previewLines.push({
+                    timestamp: runtimeSession?.lastActivity || new Date().toISOString(),
+                    content: pendingAssistantText,
+                    pending: true
+                  })
+                } else if (!previewLines.length && runtimeSession?.currentTool?.name) {
+                  previewLines.push({
+                    timestamp: runtimeSession?.lastActivity || new Date().toISOString(),
+                    content: `正在使用工具 ${runtimeSession.currentTool.name}${runtimeSession.currentTool.detail ? ` · ${runtimeSession.currentTool.detail}` : ''}`,
+                    pending: true,
+                    tool: true
+                  })
+                }
+                const taskTag = task.taskTag
+                const tagColor = getTagColor(taskTag)
+                const canQuickMessage = task.status !== 'Done'
+                const blockedDependencies = task.blockedBySubTasks || []
+                return `
+                <div class="task-card p-2 ${isSubTask ? 'ml-2' : ''} cursor-pointer ${isActive ? 'ring-2 ring-[#34C759]/30' : ''}" data-task-id="${task.id}" onclick="openTaskDetail('${task.id}')" ${taskTag ? `style="border-left: 3px solid ${tagColor}"` : ''}>
+                  <div class="flex items-start gap-2">
+                    ${selectMode ? `
+                    <i class="task-checkbox fas ${checkboxClass} text-[#0071E3] text-[14px] mt-0.5 cursor-pointer" onclick="event.stopPropagation(); toggleTaskSelect('${task.id}')"></i>
+                    ` : ''}
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 mb-1">
+                        ${taskTag ? `<span class="task-tag" style="background: ${tagColor}">${taskTag}</span>` : ''}
+                        ${liveSession?.active ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-[#E8FFF0] text-[#248A3D] flex-shrink-0">实时</span>` : ''}
+                        <h4 class="text-[11px] font-medium text-[#1D1D1F] leading-snug tracking-tight pr-2 flex-1 line-clamp-2">
+                          ${escapeHtml(task.title)}
+                        </h4>
+                      </div>
+                      ${isActive ? `
+                      <div class="flex items-center gap-1 mb-1">
+                        <span class="w-2 h-2 rounded-full bg-[#34C759] animate-pulse"></span>
+                        <span class="text-[9px] text-[#86868B]">${runtimeSession?.agentName || agentName || '进行中'}${runtimeSession?.currentTool?.name ? ` · ${escapeHtml(runtimeSession.currentTool.name)}` : ''}</span>
+                        <button onclick="event.stopPropagation(); openQuickMessage('${task.id}')" class="ml-auto flex-shrink-0 w-5 h-5 rounded-full ${liveSession?.active ? 'bg-[#34C759] hover:bg-[#30B454]' : 'bg-[#0071E3] hover:bg-[#0077ED]'} flex items-center justify-center shadow-sm">
+                          <i class="fas ${liveSession?.active ? 'fa-comments' : 'fa-paper-plane'} text-[8px] text-white"></i>
+                        </button>
+                      </div>
+                      ` : agentName || canQuickMessage ? `
+                      <div class="flex items-center gap-1 mb-1">
+                        <span class="w-2 h-2 rounded-full ${liveSession?.active ? 'bg-[#34C759]' : agentName ? 'bg-[#FF9500]' : 'bg-[#86868B]'}"></span>
+                        <span class="text-[9px] text-[#86868B]">${liveSession?.active ? (liveSession.agentName || '实时会话') : runtimeSession?.active ? (runtimeSession.agentName || '执行中') : (agentName || status.label)}</span>
+                        ${canQuickMessage ? `
+                        <button onclick="event.stopPropagation(); openQuickMessage('${task.id}')" class="ml-auto flex-shrink-0 w-5 h-5 rounded-full ${liveSession?.active ? 'bg-[#34C759] hover:bg-[#30B454]' : 'bg-[#E5E5EA] hover:bg-[#D1D1D6]'} flex items-center justify-center shadow-sm">
+                          <i class="fas fa-comments text-[8px] ${liveSession?.active ? 'text-white' : 'text-[#1D1D1F]'}"></i>
+                        </button>
+                        ` : ''}
+                      </div>
+                      ` : ''}
+                      ${previewLines.length > 0 ? `
+                      <div class="terminal-output">
+                        ${previewLines.map((line, idx) => `
+                          <div class="terminal-line ${isStreamingOutput && idx === previewLines.length - 1 ? 'thinking' : ''}">
+                            <div class="line-header">
+                              <span class="prefix">${formatTime(line.timestamp)}</span>
+                              <span class="agent-tag">${escapeHtml(line.pending ? (line.tool ? '[工具]' : '[进行中]') : line.content.startsWith('[用户消息]') ? '[你]' : line.content.startsWith('[ERROR]') ? '[错误]' : liveSession?.active ? '[实时会话]' : `[${agentName || 'agent'}]`)}</span>
+                              <span class="line-content">${escapeHtml(line.content)}</span>
+                              ${isStreamingOutput && idx === previewLines.length - 1 ? '<span class="cursor">▋</span>' : ''}
+                            </div>
+                          </div>
+                        `).join('')}
+                      </div>
+                      ` : ''}
+                      ${hasSubTasks && status.id === 'Done' ? `
+                      <div class="flex items-center justify-between mt-1">
+                        <button onclick="event.stopPropagation(); toggleDoneExpand('${task.id}')" class="flex items-center gap-1 text-[9px]" style="color: ${tagColor}">
+                          <i class="fas fa-angle-${expandedDoneTasks.has(task.id) ? 'up' : 'down'} text-[8px]"></i>
+                          <span>${expandedDoneTasks.has(task.id) ? '收起' : '展开'} ${task.subTaskIds.length} 个子任务</span>
+                        </button>
+                      </div>
+                      ${expandedDoneTasks.has(task.id) ? `
+                      <div class="subtasks-expanded mt-1 pl-2 border-l-2" style="border-color: ${tagColor}">
+                        ${getSubTasksForDone(task.id).map(st => {
+                          const stStatus = STATUSES.find(s => s.id === st.status) || { label: st.status, color: '#86868B' }
+                          const stTag = st.taskTag
+                          const stTagColor = getTagColor(stTag)
+                          return `
+                          <div class="task-card p-1.5 mt-1 bg-[#F5F5F7] rounded-lg cursor-pointer" onclick="openTaskDetail('${st.id}')">
+                            <div class="flex items-center gap-1.5">
+                              ${stTag ? `<span class="task-tag" style="background: ${stTagColor}; font-size: 8px; padding: 0 3px; min-width: 14px; height: 14px;">${stTag}</span>` : ''}
+                              <span class="text-[10px] text-[#1D1D1F] flex-1 truncate">${escapeHtml(st.title)}</span>
+                              <span class="text-[8px] px-1 py-0.5 rounded-full" style="background: ${stStatus.color}20; color: ${stStatus.color}">${stStatus.label}</span>
+                            </div>
+                          </div>
+                        `}).join('')}
+                      </div>
+                      ` : ''}
+                      ` : ''}
+                      ${hasSubTasks && status.id !== 'Done' ? `
+                      <div class="flex items-center gap-1 mt-1 text-[9px]" style="color: ${tagColor}">
+                        <i class="fas fa-sitemap text-[8px]"></i>
+                        <span>${task.subTaskIds.length} 子任务</span>
+                      </div>
+                      ` : ''}
+                      ${blockedDependencies.length > 0 ? `
+                      <div class="flex items-center gap-1 mt-1 text-[9px] text-[#FF3B30]">
+                        <i class="fas fa-circle-exclamation text-[8px]"></i>
+                        <span>${blockedDependencies.length} 个依赖阻塞</span>
+                      </div>
+                      ` : ''}
+                      ${renderCardChatPanel(task)}
+                    </div>
+                  </div>
+                </div>
+              `}).join('')}
+            </div>
+            ${totalPages > 1 ? `
+            <div class="flex items-center justify-between mt-2 px-1 text-[10px] text-[#86868B]">
+              <button onclick="changePage('${status.id}', -1)" class="px-2 py-1 hover:bg-[#E5E5EA] rounded ${currentPage <= 1 ? 'opacity-30 pointer-events-none' : ''}">
+                ‹ 上一页
+              </button>
+              <span>${currentPage}/${totalPages}</span>
+              <button onclick="changePage('${status.id}', 1)" class="px-2 py-1 hover:bg-[#E5E5EA] rounded ${currentPage >= totalPages ? 'opacity-30 pointer-events-none' : ''}">
+                下一页 ›
+              </button>
+            </div>
+            ` : ''}
+          </div>
+        `
+      }).join('')
+
+      // 自动滚动所有终端输出到底部
+      scrollAllTerminalsToBottom()
+    }
+
+    // 自动滚动终端输出到底部
+    function scrollAllTerminalsToBottom() {
+      document.querySelectorAll('.terminal-output').forEach(el => {
+        el.scrollTop = el.scrollHeight
+      })
+    }
+
+    // 翻页
+    function changePage(statusId, direction) {
+      const allTasks = currentBoard[statusId] || []
+      const totalPages = Math.ceil(allTasks.length / PAGE_SIZE) || 1
+      const newPage = (taskPages[statusId] || 1) + direction
+      if (newPage >= 1 && newPage <= totalPages) {
+        taskPages[statusId] = newPage
+        renderBoard(currentBoard, currentAgents)
+      }
+    }
+
+    // 渲染统计
+    function renderStats(stats, scheduler) {
+      lastLazyStatsAt = Date.now()
+      document.getElementById('stat-tasks').textContent = stats.totalTasks || 0
+      document.getElementById('stat-agents').textContent = `${stats.onlineAgents || 0}/${stats.totalAgents || 0}`
+
+      if (scheduler) {
+        document.getElementById('stat-active').textContent = scheduler.activeCount || 0
+        document.getElementById('stat-capacity').textContent = `${scheduler.activeCount || 0}/${scheduler.maxConcurrentAgents || 5}`
+      }
+
+      // Wiki 和 Skill 统计
+      document.getElementById('stat-wiki').textContent = stats.wikiCount || 0
+      document.getElementById('stat-skill').textContent = stats.skillCount || stats.skillPrecipitatedCount || 0
+      const skillMetaEl = document.getElementById('stat-skill-meta')
+      if (skillMetaEl) {
+        const available = stats.skillAvailableCount || 0
+        const installed = stats.skillInstalledCount || 0
+        const projectSynced = stats.skillProjectSyncedCount || 0
+        const auto = stats.skillPrecipitatedCount || 0
+        const projectOnly = stats.skillProjectCount || 0
+        skillMetaEl.textContent = `${available} 个 Claude 可用 / ${installed} 个原生 / ${projectSynced} 个项目直装 / ${auto} 个自动沉淀 / ${projectOnly} 个未同步`
+      }
+    }
+
+    // 渲染 Agent
+    function renderAgents(agents) {
+      lastLazyAgentsAt = Date.now()
+      agentCache.agents = agents || []
+      currentAgents = agents || []
+    }
+
+    function renderModalLoading(message = '加载中...') {
+      return `
+        <div class="flex items-center justify-center min-h-[180px]">
+          <div class="text-center">
+            <div class="inline-block w-5 h-5 border-2 border-[#D1D1D6] border-t-[#0071E3] rounded-full animate-spin"></div>
+            <p class="text-[12px] text-[#86868B] mt-3">${escapeHtml(message)}</p>
+          </div>
+        </div>
+      `
+    }
+
+    function showAgentModal(title, content) {
+      document.getElementById('agent-modal-title').textContent = title
+      document.getElementById('agent-modal-content').innerHTML = content
+      document.getElementById('agent-modal').classList.add('active')
+    }
+
+    function showKnowledgeModal(title, content) {
+      document.getElementById('knowledge-modal-title').textContent = title
+      document.getElementById('knowledge-modal-content').innerHTML = content
+      document.getElementById('knowledge-modal').classList.add('active')
+    }
+
+    async function openAgentBrowser() {
+      editingAgentId = null
+      if (agentCache.agents && agentCache.agents.length > 0) {
+        showAgentModal(`Agent 列表 (${agentCache.agents.length})`, renderAgentList(agentCache.agents))
+      } else {
+        showAgentModal('Agent 列表', renderModalLoading('正在加载 Agent 列表...'))
+      }
+
+      try {
+        const agentsRes = await api('/api/agents')
+        agentCache.agents = agentsRes.agents || []
+        showAgentModal(`Agent 列表 (${agentCache.agents.length})`, renderAgentList(agentCache.agents))
+      } catch (e) {
+        alert('获取 Agent 失败: ' + e.message)
+      }
+    }
+
+    function renderAgentList(agents) {
+      const list = agents || []
+      return `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-[12px] text-[#86868B]">配置来源以 Claude Code agent 设置为准。</p>
+            <button type="button" onclick="openAgentForm()" class="btn-primary">
+              <i class="fas fa-plus"></i>
+              新增 Agent
+            </button>
+          </div>
+          ${list.length === 0 ? '<p class="text-[12px] text-[#86868B] text-center py-6">暂无 Agent</p>' : `
+            <div class="flex flex-col gap-3">
+              ${list.map(agent => {
+                const skillSummary = agent.skillMode === 'custom'
+                  ? `${(agent.allowedSkills || []).length} 个专属 Skill`
+                  : '全部 Skill'
+                const statusColor = agent.status === 'busy' ? '#FF9500' : agent.status === 'offline' ? '#FF3B30' : '#34C759'
+                return `
+                  <div class="bg-[#F5F5F7] rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="w-2 h-2 rounded-full" style="background:${statusColor}"></span>
+                          <p class="text-[14px] font-semibold text-[#1D1D1F] break-all">${escapeHtml(agent.name)}</p>
+                          ${agent.model ? `<span class="px-2 py-0.5 rounded-full bg-white text-[10px] text-[#86868B]">${escapeHtml(agent.model)}</span>` : ''}
+                          <span class="px-2 py-0.5 rounded-full bg-white text-[10px] text-[#86868B]">Level ${escapeHtml(agent.level || '2')}</span>
+                        </div>
+                        <p class="text-[12px] text-[#86868B] mt-1 whitespace-pre-wrap break-all">${escapeHtml(agent.description || '暂无说明')}</p>
+                        <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-[#86868B]">
+                          <span class="px-2 py-1 rounded-full bg-white">${escapeHtml(skillSummary)}</span>
+                          <span class="px-2 py-1 rounded-full bg-white">${escapeHtml(agent.sourceLabel || 'Claude 配置')}</span>
+                          ${agent.currentTaskId ? `<span class="px-2 py-1 rounded-full bg-white">任务中</span>` : ''}
+                        </div>
+                      </div>
+                      <button type="button" onclick="openAgentForm('${escapeJsString(agent.id)}')" class="px-3 py-2 bg-white hover:bg-[#EDEDF0] rounded-lg text-[12px] font-medium text-[#1D1D1F] transition-colors">
+                        查看 / 编辑
+                      </button>
+                    </div>
+                  </div>
+                `
+              }).join('')}
+            </div>
+          `}
+        </div>
+      `
+    }
+
+    async function ensureAgentSkillsLoaded() {
+      if (agentCache.skills && agentCache.skills.length > 0) return
+      const res = await api('/api/skills')
+      agentCache.skills = res.skills || []
+    }
+
+    async function openAgentForm(agentId = null) {
+      try {
+        await ensureAgentSkillsLoaded()
+        editingAgentId = agentId
+        let agent = null
+        if (agentId) {
+          const res = await api(`/api/agents/${encodeURIComponent(agentId)}`)
+          agent = res.agent
+        }
+
+        document.getElementById('agent-modal-title').textContent = agent ? `编辑 Agent：${agent.name}` : '新增 Agent'
+        document.getElementById('agent-modal-content').innerHTML = renderAgentForm(agent)
+        toggleAgentSkillMode()
+        document.getElementById('agent-modal').classList.add('active')
+      } catch (e) {
+        alert('打开 Agent 失败: ' + e.message)
+      }
+    }
+
+    function renderAgentForm(agent) {
+      const isEdit = Boolean(agent)
+      const skillMode = agent?.skillMode === 'custom' ? 'custom' : 'all'
+      const allowedSkills = new Set(agent?.allowedSkills || [])
+      const skillItems = (agentCache.skills || []).filter(skill => skill.availableToClaude !== false)
+
+      return `
+        <form onsubmit="saveAgent(event)" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[12px] font-medium text-[#86868B] mb-2">Agent 名称 *</label>
+              <input type="text" id="agent-name" required value="${escapeAttr(agent?.name || '')}" placeholder="executor"
+                class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[14px] focus:outline-none focus:border-[#0071E3]">
+            </div>
+            <div>
+              <label class="block text-[12px] font-medium text-[#86868B] mb-2">模型</label>
+              <input type="text" id="agent-model" value="${escapeAttr(agent?.model || '')}" placeholder="claude-sonnet-4-6"
+                class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[14px] focus:outline-none focus:border-[#0071E3]">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[12px] font-medium text-[#86868B] mb-2">说明</label>
+            <input type="text" id="agent-description" value="${escapeAttr(agent?.description || '')}" placeholder="这个 Agent 负责什么"
+              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[14px] focus:outline-none focus:border-[#0071E3]">
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[12px] font-medium text-[#86868B] mb-2">角色标识</label>
+              <input type="text" id="agent-role" value="${escapeAttr(agent?.role || agent?.name || '')}" placeholder="默认同 Agent 名称"
+                class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[14px] focus:outline-none focus:border-[#0071E3]">
+            </div>
+            <div>
+              <label class="block text-[12px] font-medium text-[#86868B] mb-2">Level</label>
+              <input type="number" id="agent-level" min="1" max="5" value="${escapeAttr(agent?.level || 2)}"
+                class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[14px] focus:outline-none focus:border-[#0071E3]">
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <label class="block text-[12px] font-medium text-[#86868B]">专属 Skill</label>
+              <span class="text-[10px] text-[#86868B]">默认全部开启</span>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <label class="flex items-center gap-2 px-3 py-2 bg-[#F5F5F7] rounded-lg text-[12px] text-[#1D1D1F]">
+                <input type="radio" name="agent-skill-mode" value="all" onchange="toggleAgentSkillMode()" ${skillMode === 'all' ? 'checked' : ''}>
+                全部 Skill
+              </label>
+              <label class="flex items-center gap-2 px-3 py-2 bg-[#F5F5F7] rounded-lg text-[12px] text-[#1D1D1F]">
+                <input type="radio" name="agent-skill-mode" value="custom" onchange="toggleAgentSkillMode()" ${skillMode === 'custom' ? 'checked' : ''}>
+                指定 Skill
+              </label>
+            </div>
+            <div id="agent-skill-picker" class="border border-[#E5E5EA] rounded-xl p-3">
+              <div class="flex items-center gap-2 mb-3">
+                <input type="text" oninput="filterAgentSkills(this.value)" placeholder="筛选 Skill"
+                  class="flex-1 px-3 py-2 border border-[#E5E5EA] rounded-lg text-[12px] focus:outline-none focus:border-[#0071E3]">
+                <button type="button" onclick="setAllAgentSkills(true)" class="px-3 py-2 bg-[#F5F5F7] hover:bg-[#EDEDF0] rounded-lg text-[12px]">全选</button>
+                <button type="button" onclick="setAllAgentSkills(false)" class="px-3 py-2 bg-[#F5F5F7] hover:bg-[#EDEDF0] rounded-lg text-[12px]">清空</button>
+              </div>
+              <div id="agent-skill-list" class="max-h-[220px] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2">
+                ${skillItems.length === 0 ? '<p class="text-[12px] text-[#86868B]">暂无 Claude 可用 Skill</p>' : skillItems.map(skill => `
+                  <label data-skill-name="${escapeAttr((skill.name || '').toLowerCase())}" class="agent-skill-option flex items-start gap-2 px-3 py-2 bg-[#F5F5F7] rounded-lg text-[12px] text-[#1D1D1F]">
+                    <input type="checkbox" name="agent-skill" value="${escapeAttr(skill.name)}" ${allowedSkills.has(skill.name) ? 'checked' : ''} class="mt-0.5">
+                    <span class="min-w-0">
+                      <span class="block font-medium break-all">${escapeHtml(skill.name)}</span>
+                      <span class="block text-[10px] text-[#86868B] break-all">${escapeHtml(skill.sourceLabel || 'Claude Skill')}</span>
+                    </span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[12px] font-medium text-[#86868B] mb-2">Agent 指令</label>
+            <textarea id="agent-instructions" rows="8" placeholder="写入 Claude agent 的 instructions / prompt"
+              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[13px] font-mono focus:outline-none focus:border-[#0071E3] resize-y">${escapeHtml(agent?.instructions || '')}</textarea>
+          </div>
+
+          ${isEdit && agent?.sourcePath ? `
+            <p class="text-[10px] text-[#86868B] break-all">配置文件：${escapeHtml(agent.sourcePath)}</p>
+          ` : ''}
+
+          <div class="flex gap-3 justify-between mt-6">
+            <button type="button" onclick="openAgentBrowser()" class="px-5 py-2.5 text-[14px] font-medium text-[#86868B] hover:bg-[#F5F5F7] rounded-full transition-colors">
+              返回列表
+            </button>
+            <button type="submit" class="btn-primary">
+              ${isEdit ? '保存修改' : '创建 Agent'}
+            </button>
+          </div>
+        </form>
+      `
+    }
+
+    function toggleAgentSkillMode() {
+      const mode = document.querySelector('input[name="agent-skill-mode"]:checked')?.value || 'all'
+      const picker = document.getElementById('agent-skill-picker')
+      if (!picker) return
+      picker.classList.toggle('opacity-40', mode === 'all')
+      picker.classList.toggle('pointer-events-none', mode === 'all')
+    }
+
+    function filterAgentSkills(query) {
+      const normalized = String(query || '').trim().toLowerCase()
+      document.querySelectorAll('.agent-skill-option').forEach(item => {
+        const name = item.getAttribute('data-skill-name') || ''
+        item.classList.toggle('hidden', normalized && !name.includes(normalized))
+      })
+    }
+
+    function setAllAgentSkills(checked) {
+      document.querySelectorAll('input[name="agent-skill"]').forEach(input => {
+        input.checked = checked
+      })
+    }
+
+    async function saveAgent(event) {
+      event.preventDefault()
+      const skillMode = document.querySelector('input[name="agent-skill-mode"]:checked')?.value || 'all'
+      const allowedSkills = Array.from(document.querySelectorAll('input[name="agent-skill"]:checked')).map(input => input.value)
+
+      if (skillMode === 'custom' && allowedSkills.length === 0) {
+        alert('指定 Skill 模式下至少选择一个 Skill')
+        return
+      }
+
+      const payload = {
+        name: document.getElementById('agent-name').value.trim(),
+        role: document.getElementById('agent-role').value.trim(),
+        description: document.getElementById('agent-description').value.trim(),
+        model: document.getElementById('agent-model').value.trim(),
+        level: Number(document.getElementById('agent-level').value || 2),
+        instructions: document.getElementById('agent-instructions').value.trim(),
+        skillMode,
+        allowedSkills
+      }
+
+      try {
+        if (editingAgentId) {
+          await api(`/api/agents/${encodeURIComponent(editingAgentId)}`, {
+            method: 'PATCH',
+            body: payload
+          })
+        } else {
+          await api('/api/agents', {
+            method: 'POST',
+            body: payload
+          })
+        }
+
+        await openAgentBrowser()
+        await refreshAll()
+      } catch (e) {
+        alert('保存 Agent 失败: ' + e.message)
+      }
+    }
+
+    // 打开创建任务模态框
+    function openCreateTask() {
+      document.getElementById('task-title').value = ''
+      document.getElementById('task-desc').value = ''
+      document.getElementById('task-operation-folder').value = ''
+      document.getElementById('create-modal').classList.add('active')
+    }
+
+    // 创建任务
+    async function createTask(e) {
+      e.preventDefault()
+      const title = document.getElementById('task-title').value.trim()
+      const description = document.getElementById('task-desc').value.trim()
+      const operationFolder = document.getElementById('task-operation-folder').value.trim()
+
+      try {
+        await api('/api/tasks', {
+          method: 'POST',
+          body: JSON.stringify({ title, description, operationFolder })
+        })
+        closeModal('create-modal')
+        refreshAll()
+      } catch (e) {
+        alert('创建失败: ' + e.message)
+      }
+    }
+
+    // 删除任务
+    async function deleteTask(taskId) {
+      if (!confirm('确定要删除这个任务吗？')) return
+      try {
+        await api(`/api/tasks/${taskId}`, { method: 'DELETE' })
+        refreshAll()
+      } catch (e) {
+        alert('删除失败: ' + e.message)
+      }
+    }
+
+    // 切换选择模式
+    let selectMode = false
+    function toggleSelectMode() {
+      selectMode = !selectMode
+      selectedTasks.clear()
+      const btn = document.getElementById('select-mode-btn')
+      const batchBar = document.getElementById('batch-action-bar')
+      if (selectMode) {
+        btn.classList.add('bg-[#0071E3]', 'text-white')
+        btn.classList.remove('text-[#86868B]')
+        batchBar.classList.remove('hidden')
+      } else {
+        btn.classList.remove('bg-[#0071E3]', 'text-white')
+        btn.classList.add('text-[#86868B]')
+        batchBar.classList.add('hidden')
+      }
+      // 重新渲染看板以显示复选框
+      renderBoard(currentBoard, currentAgents)
+    }
+
+    // 切换任务选择
+    function toggleTaskSelect(taskId) {
+      if (selectedTasks.has(taskId)) {
+        selectedTasks.delete(taskId)
+      } else {
+        selectedTasks.add(taskId)
+      }
+      updateBatchDeleteBtn()
+      // 更新复选框状态
+      const checkbox = document.querySelector(`[data-task-id="${taskId}"] .task-checkbox`)
+      if (checkbox) {
+        checkbox.classList.toggle('fa-check-square', selectedTasks.has(taskId))
+        checkbox.classList.toggle('fa-square', !selectedTasks.has(taskId))
+      }
+    }
+
+    // 更新批量删除按钮
+    function updateBatchDeleteBtn() {
+      const deleteBtn = document.getElementById('batch-delete-btn')
+      if (deleteBtn) {
+        deleteBtn.style.display = selectedTasks.size > 0 ? 'flex' : 'none'
+        const countEl = document.getElementById('selected-count')
+        if (countEl) countEl.textContent = selectedTasks.size
+      }
+    }
+
+    // 批量删除任务
+    async function batchDeleteTasks() {
+      if (selectedTasks.size === 0) return
+      if (!confirm(`确定要删除选中的 ${selectedTasks.size} 个任务吗？`)) return
+      try {
+        for (const taskId of selectedTasks) {
+          await api(`/api/tasks/${taskId}`, { method: 'DELETE' })
+        }
+        selectedTasks.clear()
+        toggleSelectMode()
+        refreshAll()
+      } catch (e) {
+        alert('批量删除失败: ' + e.message)
+      }
+    }
+
+    // 更新任务状态
+    async function updateTaskStatus(taskId, newStatus, note) {
+      try {
+        await api(`/api/tasks/${taskId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: newStatus, note: note })
+        })
+        closeModal('task-modal')
+        refreshAll()
+      } catch (e) {
+        alert('状态更新失败: ' + e.message)
+      }
+    }
+
+    async function reopenBlockedTask(taskId) {
+      try {
+        await api(`/api/tasks/${taskId}/reopen`, {
+          method: 'POST',
+          body: { note: '人工重新打开任务' }
+        })
+        await openTaskDetail(taskId)
+        refreshAll()
+      } catch (e) {
+        alert('重新打开失败: ' + e.message)
+      }
+    }
+
+    async function skipTaskDependency(taskId) {
+      if (!confirm('确定跳过这个子任务吗？系统会把它视为人工跳过，并让父任务继续推进。')) return
+
+      try {
+        await api(`/api/tasks/${taskId}/skip`, {
+          method: 'POST',
+          body: { reason: '人工确认跳过该阻塞子任务' }
+        })
+        await openTaskDetail(taskId)
+        refreshAll()
+      } catch (e) {
+        alert('跳过失败: ' + e.message)
+      }
+    }
+
+    async function importTaskArtifact(taskId) {
+      const sourcePath = prompt('输入现有工件的绝对路径')
+      if (!sourcePath) return
+
+      const targetPath = prompt('输入复制到任务工作区的相对路径（可留空自动使用原文件名）', '.omc/manual/')
+      try {
+        await api(`/api/tasks/${taskId}/import-artifact`, {
+          method: 'POST',
+          body: {
+            sourcePath,
+            targetPath: targetPath || ''
+          }
+        })
+        await openTaskDetail(taskId)
+        refreshAll()
+      } catch (e) {
+        alert('导入工件失败: ' + e.message)
+      }
+    }
+
+    async function fileToBase64(file) {
+      const buffer = await file.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      const chunkSize = 0x8000
+      let binary = ''
+
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize)
+        binary += String.fromCharCode(...chunk)
+      }
+
+      return btoa(binary)
+    }
+
+    async function uploadTaskArtifact(taskId) {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '*/*'
+
+      input.onchange = async () => {
+        const file = input.files && input.files[0]
+        if (!file) return
+
+        if (file.size > 6 * 1024 * 1024) {
+          alert('单个文件请控制在 6MB 内。更大的文件建议使用“导入现有工件”。')
+          return
+        }
+
+        const targetPath = prompt('输入写入任务工作区的相对路径（可留空默认放到 .omc/manual/ 下）', `.omc/manual/${file.name}`)
+        if (targetPath === null) return
+
+        try {
+          const contentBase64 = await fileToBase64(file)
+          await api(`/api/tasks/${taskId}/upload-artifact`, {
+            method: 'POST',
+            body: {
+              filename: file.name,
+              contentBase64,
+              targetPath: targetPath || ''
+            }
+          })
+          await openTaskDetail(taskId)
+          refreshAll()
+        } catch (e) {
+          alert('上传工件失败: ' + e.message)
+        }
+      }
+
+      input.click()
+    }
+
+    function normalizeDisplayText(text) {
+      return String(text || '').replace(/\r/g, '').trim()
+    }
+
+    function parseTaskDescriptionSections(description) {
+      const raw = normalizeDisplayText(description)
+      const sections = {}
+      if (!raw) return { sections, plain: '' }
+
+      const sectionRegex = /【([^】]+)】\s*([\s\S]*?)(?=\n【[^】]+】|$)/g
+      let match
+      let found = false
+      while ((match = sectionRegex.exec(raw)) !== null) {
+        found = true
+        sections[match[1]] = normalizeDisplayText(match[2])
+      }
+
+      if (!found) {
+        return { sections, plain: raw }
+      }
+
+      const firstSectionIndex = raw.indexOf('【')
+      const plain = firstSectionIndex > 0 ? normalizeDisplayText(raw.slice(0, firstSectionIndex)) : ''
+      return { sections, plain }
+    }
+
+    function cleanVerificationSummaryLine(line) {
+      return normalizeDisplayText(line)
+        .replace(/^\s*[-*]\s+/, '')
+        .replace(/\*\*/g, '')
+        .trim()
+    }
+
+    function extractReadableVerificationSummary(output) {
+      const lines = String(output || '').replace(/\r/g, '').split('\n')
+      const interestingSections = new Set(['具体缺失内容', '错误信息', '核心问题', '核心问题汇总', '问题汇总'])
+      const highlights = []
+      let currentSection = ''
+
+      for (const rawLine of lines) {
+        const trimmed = rawLine.trim()
+        if (!trimmed) continue
+
+        const headingMatch = trimmed.match(/^#{2,4}\s*(.+)$/)
+        if (headingMatch) {
+          currentSection = cleanVerificationSummaryLine(headingMatch[1]).replace(/[：:]$/, '')
+          continue
+        }
+
+        if (/^\|/.test(trimmed) || /^-{3,}$/.test(trimmed) || /^✅/.test(trimmed) || /^❌\s*\*{0,2}验证/.test(trimmed)) {
+          continue
+        }
+
+        const cleaned = cleanVerificationSummaryLine(trimmed)
+        if (!cleaned) continue
+
+        const isStructuredProblem =
+          /^(要求未满足|缺失内容|错误信息)[：:]/.test(cleaned) ||
+          /^问题\s*\d+[：:]/i.test(cleaned)
+        const isInterestingSectionLine = interestingSections.has(currentSection) && /^[-*]\s+/.test(trimmed)
+
+        if (isStructuredProblem || isInterestingSectionLine) {
+          highlights.push(cleaned)
+        }
+      }
+
+      const unique = []
+      const seen = new Set()
+      for (const item of highlights) {
+        const key = item.replace(/\s+/g, '').toLowerCase()
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        unique.push(item)
+        if (unique.length >= 6) break
+      }
+
+      return unique.length > 0 ? unique.map(item => `- ${item}`).join('\n') : ''
+    }
+
+    function isLowQualityBugReport(text) {
+      const value = normalizeDisplayText(text)
+      if (!value) return true
+      return value.includes('|---|') ||
+        /^QA\s*验证失败[：:]?[，,;：\s*#|-]*$/i.test(value) ||
+        (value.length < 30 && !/[。！？\n]/.test(value))
+    }
+
+    function getTaskDisplayInfo(task, logs = []) {
+      const { sections, plain } = parseTaskDescriptionSections(task.description)
+      const rawDescription = normalizeDisplayText(task.description)
+      const latestVerificationOutput = (logs || []).find(log => log.action === '验证输出')?.message || ''
+
+      let bugReport = normalizeDisplayText(task.bugReport || sections['QA 验证失败'])
+      if (isLowQualityBugReport(bugReport)) {
+        bugReport = extractReadableVerificationSummary(latestVerificationOutput) || bugReport
+      }
+
+      const requirement = sections['原始任务要求'] ||
+        (!rawDescription.startsWith('【QA 验证失败】') ? (plain || rawDescription) : '')
+
+      return {
+        requirement: normalizeDisplayText(requirement),
+        parentBackground: normalizeDisplayText(sections['父任务背景']),
+        bugReport: normalizeDisplayText(bugReport)
+      }
+    }
+
+    function hasCompanionLogForStatus(historyItem, logs = []) {
+      const statusActionMap = {
+        ReadyForTest: ['开发完成', '测试通过'],
+        InFix: ['验证', '待修复'],
+        Done: ['验证', '任务完成'],
+        InDev: ['开始开发'],
+        Collecting: ['补充信息'],
+        Analyzing: ['开始分析']
+      }
+      const expectedActions = statusActionMap[historyItem.to] || []
+      if (expectedActions.length === 0) return false
+
+      const historyTime = new Date(historyItem.createdAt).getTime()
+      return logs.some(log => {
+        if (!expectedActions.includes(log.action)) return false
+        const logTime = new Date(log.createdAt).getTime()
+        return Number.isFinite(logTime) && Math.abs(logTime - historyTime) <= 5000
+      })
+    }
+
+    // 打开任务详情
+    async function openTaskDetail(taskId) {
+      try {
+        const agentsPromise = currentAgents && currentAgents.length > 0
+          ? Promise.resolve({ agents: currentAgents })
+          : api('/api/agents')
+
+        const [taskRes, historyRes, logsRes, agentsRes, subTasksRes] = await Promise.all([
+          api(`/api/tasks/${taskId}`),
+          api(`/api/tasks/${taskId}/history`),
+          api(`/api/tasks/${taskId}/logs`),
+          agentsPromise,
+          api(`/api/tasks/${taskId}/subtasks?compact=true`).catch(() => ({ subTasks: [] }))
+        ])
+
+        const task = taskRes.task
+        const history = historyRes.history || []
+        const logs = logsRes.logs || []
+        const agents = agentsRes.agents || []
+        const subTasks = subTasksRes.subTasks || []
+        const outputLines = task.outputLines || []
+        const taskMessages = task.messages || []
+        const latestOutputLines = outputLines.length > 6 ? outputLines.slice(-6) : outputLines
+        const earlierOutputLines = outputLines.length > 6 ? outputLines.slice(0, -6) : []
+        task.messages = taskMessages
+        currentTask = task
+        const liveSession = task.liveSession
+        const runtimeSession = getRuntimeSession(task)
+
+        // 查找当前任务的 Agent（使用 description 作为中文名）
+        const assignedAgent = task.assignedAgentId ? agents.find(a => a.id === task.assignedAgentId) : null
+        const agentDisplayName = assignedAgent ? (assignedAgent.description || assignedAgent.name) : null
+
+        const statusInfo = STATUSES.find(s => s.id === task.status) || { label: task.status, color: '#86868B' }
+        const taskTag = task.taskTag
+        const tagColor = getTagColor(taskTag)
+        const displayInfo = getTaskDisplayInfo(task, logs)
+        const artifactManifest = task.artifactManifest || []
+        const mountedArtifacts = task.mountedArtifacts || []
+        const blockedDependencies = task.blockedBySubTasks || []
+        const workspaceInfo = task.workspace || {}
+        const operationFolder = String(task.operationFolder || '').trim()
+
+        // 合并历史和日志，按时间排序
+        const dedupedHistory = history.filter(h => !hasCompanionLogForStatus(h, logs))
+        const timeline = [
+          ...dedupedHistory.map(h => ({
+            id: h.id,
+            time: h.createdAt,
+            type: 'status',
+            from: h.fromStatus,
+            to: h.toStatus,
+            note: h.note || null,
+            operator: h.operatorId
+          })),
+          ...logs.map(l => ({
+            id: l.id,
+            time: l.createdAt,
+            type: 'log',
+            action: l.action,
+            message: l.message,
+            operator: l.agentId
+          }))
+        ].sort((a, b) => new Date(a.time) - new Date(b.time))
+
+        // 渲染时间线项 - 更清晰的展示
+        const timelineHtml = timeline.length > 0 ? timeline.map(item => {
+          if (item.type === 'log') {
+            // 查找 agent 名称
+            const logAgent = item.operator ? agents.find(a => a.id === item.operator) : null
+            const agentName = logAgent ? (logAgent.description || logAgent.name) : '系统'
+            const actionColor = item.action === '任务分解' ? '#AF52DE' : item.action === '开发完成' || item.action === '测试通过' ? '#34C759' : '#0071E3'
+
+            return `
+              <div class="timeline-item relative pl-9 pb-5">
+                <div class="absolute left-0 top-0.5 w-5 h-5 rounded-full flex items-center justify-center" style="background: ${actionColor}20">
+                  <i class="fas fa-user text-[8px]" style="color: ${actionColor}"></i>
+                </div>
+                <div class="bg-[#F5F5F7] rounded-lg p-2.5">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-[11px] font-medium" style="color: ${actionColor}">${agentName}</span>
+                    <span class="text-[10px] text-[#86868B]">${formatTimeRelative(item.time)}</span>
+                  </div>
+                  <p class="text-[12px] font-medium text-[#1D1D1F] mb-0.5">${escapeHtml(item.action)}</p>
+                  ${item.message ? `<p class="text-[11px] text-[#86868B] whitespace-pre-wrap break-all">${escapeHtml(item.message)}</p>` : ''}
+                </div>
+              </div>
+            `
+          } else {
+            // 状态变更
+            const toStatus = STATUSES.find(s => s.id === item.to) || { label: item.to, color: '#86868B' }
+            return `
+              <div class="timeline-item relative pl-9 pb-5">
+                <div class="absolute left-0 top-0.5 w-5 h-5 rounded-full" style="background: ${toStatus.color}20">
+                </div>
+                <div class="bg-[#F5F5F7] rounded-lg p-2.5">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-[11px] font-medium" style="color: ${toStatus.color}">→ ${toStatus.label}</span>
+                    <span class="text-[10px] text-[#86868B]">${formatTimeRelative(item.time)}</span>
+                  </div>
+                  ${item.from ? `<p class="text-[11px] text-[#86868B]">从「${item.from}」变更</p>` : ''}
+                </div>
+              </div>
+            `
+          }
+        }).join('') : '<p class="text-[12px] text-[#86868B] text-center py-3">暂无记录</p>'
+
+        const activityFeedHtml = renderTaskActivityFeed(task, outputLines)
+
+        const messagePlaceholder = task.status === 'Done'
+          ? '任务已完成，不能继续开启实时会话'
+          : liveSession?.active
+            ? '继续和当前 Agent 实时对话'
+            : '输入消息，系统会自动开启实时多轮会话'
+
+        // 任务来源说明
+        const originText = task.parentTaskId
+          ? `来自父任务分解`
+          : '用户创建'
+
+        document.getElementById('task-detail-content').innerHTML = `
+          <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1">
+              ${taskTag ? `<span class="task-tag" style="background: ${tagColor}">${taskTag}</span>` : ''}
+              <h3 class="text-[15px] font-semibold text-[#1D1D1F] leading-snug">${escapeHtml(task.title)}</h3>
+            </div>
+            ${displayInfo.requirement ? `<p class="text-[12px] text-[#86868B] mt-1.5 whitespace-pre-wrap break-all">${escapeHtml(displayInfo.requirement)}</p>` : ''}
+          </div>
+
+          <div class="flex items-center gap-2 mb-3 text-[11px]">
+            <span class="px-2 py-0.5 rounded-full" style="background: ${statusInfo.color}20; color: ${statusInfo.color}">${statusInfo.label}</span>
+            ${taskTag ? `<span class="px-2 py-0.5 rounded-full" style="background: ${tagColor}20; color: ${tagColor}">#${taskTag}</span>` : ''}
+            ${task.skipAsDependency ? `<span class="px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#C2410C]">已跳过依赖</span>` : ''}
+            <span class="text-[#86868B]">•</span>
+            <span class="text-[#86868B]">${originText}</span>
+          </div>
+
+          ${(task.status === 'Blocked' || task.skipAsDependency) ? `
+          <div class="flex flex-wrap gap-2 mb-3">
+            ${(task.status === 'Blocked' || task.skipAsDependency) ? `
+            <button type="button" onclick="reopenBlockedTask('${task.id}')" class="px-3 py-2 bg-[#0071E3] text-white text-[12px] rounded-lg hover:bg-[#0077ED]">
+              ${task.skipAsDependency ? '恢复此子任务' : '重新打开'}
+            </button>
+            ` : ''}
+            ${task.status === 'Blocked' ? `
+            <button type="button" onclick="uploadTaskArtifact('${task.id}')" class="px-3 py-2 bg-white text-[#1D1D1F] text-[12px] rounded-lg hover:bg-[#F5F5F7] border border-[#E5E5EA]">
+              上传缺失工件
+            </button>
+            ` : ''}
+            ${task.status === 'Blocked' ? `
+            <button type="button" onclick="importTaskArtifact('${task.id}')" class="px-3 py-2 bg-[#F5F5F7] text-[#1D1D1F] text-[12px] rounded-lg hover:bg-[#EDEDF0]">
+              导入现有工件
+            </button>
+            ` : ''}
+            ${task.parentTaskId && !task.skipAsDependency ? `
+            <button type="button" onclick="skipTaskDependency('${task.id}')" class="px-3 py-2 bg-[#FFF7ED] text-[#C2410C] text-[12px] rounded-lg hover:bg-[#FDEAD7]">
+              跳过此子任务
+            </button>
+            ` : ''}
+          </div>
+          ` : ''}
+
+          ${displayInfo.bugReport ? `
+          <div class="bg-[#FFF2F2] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#FF3B30] font-medium mb-1">Bug 报告</p>
+            <p class="text-[12px] text-[#FF3B30] whitespace-pre-wrap break-all">${escapeHtml(displayInfo.bugReport)}</p>
+          </div>
+          ` : ''}
+
+          ${task.skipAsDependency && task.skipReason ? `
+          <div class="bg-[#FFF7ED] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#C2410C] font-medium mb-1">跳过说明</p>
+            <p class="text-[12px] text-[#C2410C] whitespace-pre-wrap break-all">${escapeHtml(task.skipReason)}</p>
+          </div>
+          ` : ''}
+
+          ${blockedDependencies.length > 0 ? `
+          <div class="bg-[#FFF7ED] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#C2410C] font-medium mb-1">依赖阻塞</p>
+            <div class="flex flex-col gap-2">
+              ${blockedDependencies.map(item => `
+                <div class="bg-white rounded-lg p-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-[12px] font-medium text-[#1D1D1F] break-all">${escapeHtml(item.title || item.id)}</p>
+                    <span class="text-[10px] text-[#C2410C]">${formatTimeRelative(item.updatedAt)}</span>
+                  </div>
+                  ${item.blockedReason ? `<p class="text-[11px] text-[#86868B] mt-1 whitespace-pre-wrap break-all">${escapeHtml(item.blockedReason)}</p>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          ${displayInfo.parentBackground ? `
+          <div class="bg-[#F5F5F7] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#86868B] font-medium mb-1">父任务背景</p>
+            <p class="text-[12px] text-[#1D1D1F] whitespace-pre-wrap break-all">${escapeHtml(displayInfo.parentBackground)}</p>
+          </div>
+          ` : ''}
+
+          ${task.decompositionNote ? `
+          <div class="bg-[#F5F5F7] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#AF52DE] font-medium mb-1">分析结果</p>
+            <p class="text-[12px] text-[#1D1D1F]">${escapeHtml(task.decompositionNote)}</p>
+          </div>
+          ` : ''}
+
+          ${operationFolder ? `
+          <div class="bg-[#F5F5F7] p-2.5 rounded-lg mb-3">
+            <p class="text-[11px] text-[#86868B] font-medium mb-1">指定操作目录</p>
+            <p class="text-[12px] text-[#1D1D1F] break-all">${escapeHtml(operationFolder)}</p>
+            <p class="text-[11px] text-[#86868B] mt-1">调度器会优先提醒 Agent 在这个目录里查资料和修改文件。</p>
+          </div>
+          ` : ''}
+
+          ${(workspaceInfo.path || artifactManifest.length > 0) ? `
+          <div class="bg-[#F5F5F7] p-2.5 rounded-lg mb-3">
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <p class="text-[11px] text-[#86868B] font-medium">工作区与工件</p>
+              ${workspaceInfo.status ? `<span class="text-[10px] text-[#86868B]">${escapeHtml(workspaceInfo.status)}</span>` : ''}
+            </div>
+            ${workspaceInfo.path ? `
+              <div class="bg-white rounded-lg p-2 mb-2">
+                <p class="text-[10px] text-[#86868B] mb-1">Workspace</p>
+                <p class="text-[12px] text-[#1D1D1F] break-all">${escapeHtml(workspaceInfo.path)}</p>
+                <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-[#86868B]">
+                  ${workspaceInfo.lastExecutionAt ? `<span>执行：${formatDateTime(workspaceInfo.lastExecutionAt)}</span>` : ''}
+                  ${workspaceInfo.lastVerifiedAt ? `<span>验证：${formatDateTime(workspaceInfo.lastVerifiedAt)}</span>` : ''}
+                  ${workspaceInfo.cleanedAt ? `<span>清理：${formatDateTime(workspaceInfo.cleanedAt)}</span>` : ''}
+                </div>
+              </div>
+            ` : ''}
+            ${artifactManifest.length > 0 ? `
+              <div class="flex flex-col gap-2">
+                ${artifactManifest.slice(0, 8).map(item => `
+                  <div class="bg-white rounded-lg p-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-[12px] font-medium ${item.exists ? 'text-[#1D1D1F]' : 'text-[#FF3B30]'} break-all">${escapeHtml(item.relativeToWorkspace || item.path || item.absolutePath)}</p>
+                      <span class="text-[10px] ${item.exists ? 'text-[#34C759]' : 'text-[#FF3B30]'}">${item.exists ? '存在' : '缺失'}</span>
+                    </div>
+                    <p class="text-[11px] text-[#86868B] break-all mt-1">${escapeHtml(item.absolutePath || '')}</p>
+                    <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-[#86868B]">
+                      ${item.required ? '<span>必需工件</span>' : ''}
+                      ${item.kind ? `<span>${escapeHtml(item.kind)}</span>` : ''}
+                      ${item.size !== null && item.size !== undefined ? `<span>${formatFileSize(item.size)}</span>` : ''}
+                      ${Array.isArray(item.sources) && item.sources.length > 0 ? `<span>${escapeHtml(item.sources.join(', '))}</span>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+                ${artifactManifest.length > 8 ? `<p class="text-[10px] text-[#86868B] text-center">还有 ${artifactManifest.length - 8} 个工件...</p>` : ''}
+              </div>
+            ` : '<p class="text-[12px] text-[#86868B]">系统暂未识别到可展示的工件路径。</p>'}
+            ${mountedArtifacts.length > 0 ? `
+              <div class="mt-3">
+                <p class="text-[10px] text-[#86868B] mb-2">已挂载依赖工件</p>
+                <div class="flex flex-col gap-2">
+                  ${mountedArtifacts.slice(0, 6).map(item => `
+                    <div class="bg-white rounded-lg p-2">
+                      <p class="text-[12px] text-[#1D1D1F] break-all">${escapeHtml(item.relativeMountedPath || item.mountedPath)}</p>
+                      <p class="text-[11px] text-[#86868B] break-all mt-1">${escapeHtml(item.sourceTaskTitle || item.sourceTaskId || '')} · ${escapeHtml(item.sourcePath || '')}</p>
+                    </div>
+                  `).join('')}
+                  ${mountedArtifacts.length > 6 ? `<p class="text-[10px] text-[#86868B] text-center">还有 ${mountedArtifacts.length - 6} 个挂载工件...</p>` : ''}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+          ` : ''}
+
+          ${renderDetailSubTasks(task, subTasks)}
+
+          <div class="mb-3">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-[11px] text-[#86868B] font-medium">对话与执行流</p>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] ${(liveSession?.active || runtimeSession?.active) ? 'text-[#34C759]' : 'text-[#86868B]'}">
+                  ${liveSession?.active
+                    ? `${escapeHtml(liveSession.agentName || 'Agent')} 在线${liveSession.isResponding ? ' · 正在回复' : ''}`
+                    : runtimeSession?.active
+                      ? `${escapeHtml(runtimeSession.agentName || 'Agent')} ${runtimeSession.mode === 'analysis' ? '分析中' : runtimeSession.mode === 'verification' ? '验证中' : '执行中'}${runtimeSession.currentTool?.name ? ` · ${escapeHtml(runtimeSession.currentTool.name)}` : runtimeSession.isResponding ? ' · 正在输出' : ''}`
+                      : '发送后自动进入实时会话'}
+                </span>
+                ${liveSession?.active ? `
+                  <button type="button" onclick="stopDetailLiveSession()" class="text-[10px] text-[#FF3B30] hover:underline">结束会话</button>
+                ` : ''}
+              </div>
+            </div>
+            <div class="flex flex-col gap-2 mb-2 max-h-[260px] overflow-y-auto">
+              ${activityFeedHtml}
+              ${liveSession?.active && liveSession.isResponding && !getRuntimePendingText(task) ? `
+                <div class="rounded-lg px-3 py-2 bg-[#FFF9E8]">
+                  <p class="text-[11px] text-[#C27C00]">Agent 正在回复，请稍等…</p>
+                </div>
+              ` : ''}
+            </div>
+            <div class="flex gap-2">
+              <input type="text" id="agent-message-input" placeholder="${messagePlaceholder}"
+                class="flex-1 px-3 py-2 text-[12px] border border-[#E5E5EA] rounded-lg focus:outline-none focus:border-[#0071E3]"
+                onkeypress="if(event.key==='Enter') sendAgentMessage()">
+              <button onclick="sendAgentMessage()" class="px-4 py-2 bg-[#0071E3] text-white text-[12px] rounded-lg hover:bg-[#0077ED]">
+                发送
+              </button>
+            </div>
+          </div>
+
+          <!-- 流转记录 -->
+          <div>
+            <p class="text-[11px] text-[#86868B] mb-2 font-medium">处理记录</p>
+            <div class="max-h-[200px] overflow-y-auto">
+              ${timelineHtml}
+            </div>
+          </div>
+        `
+          <!-- 流转记录 -->
+
+        document.getElementById('task-modal').classList.add('active')
+      } catch (e) {
+        alert('获取任务详情失败: ' + e.message)
+      }
+    }
+
+    // 格式化时间
+    function formatTime(isoString) {
+      if (!isoString) return '—'
+      const d = new Date(isoString)
+      const month = d.getMonth() + 1
+      const day = d.getDate()
+      const hour = d.getHours().toString().padStart(2, '0')
+      const min = d.getMinutes().toString().padStart(2, '0')
+      return `${month}/${day} ${hour}:${min}`
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '—'
+      return new Date(isoString).toLocaleString('zh-CN', { hour12: false })
+    }
+
+    function formatFileSize(bytes) {
+      const value = Number(bytes)
+      if (!Number.isFinite(value) || value < 0) return '—'
+      if (value < 1024) return `${value} B`
+      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    async function sendTaskMessage(taskId, message, options = {}) {
+      const content = (message || '').trim()
+      if (!content) return null
+
+      const result = await api(`/api/tasks/${taskId}/messages`, {
+        method: 'POST',
+        body: { content }
+      })
+      const nextTaskId = result.followUpTaskId || result.followUpTask?.id || result.task?.id || taskId
+
+      if (options.reopenDetail) {
+        await openTaskDetail(nextTaskId)
+      } else {
+        await refreshAll()
+      }
+
+      return result
+    }
+
+    async function sendLiveTaskMessage(taskId, message, options = {}) {
+      const content = (message || '').trim()
+      if (!content) return null
+
+      const result = await api(`/api/tasks/${taskId}/live-session/message`, {
+        method: 'POST',
+        body: { content }
+      })
+
+      if (options.reopenDetail) {
+        await openTaskDetail(taskId)
+      } else {
+        await refreshAll()
+      }
+
+      return result
+    }
+
+    function findTaskInBoard(taskId) {
+      if (!currentBoard) return null
+      for (const tasks of Object.values(currentBoard)) {
+        const found = (tasks || []).find(task => task.id === taskId)
+        if (found) return found
+      }
+      return null
+    }
+
+    function isTerminalTask(task) {
+      return Boolean(task?.status && TERMINAL_TASK_STATUSES.has(task.status))
+    }
+
+    async function sendTaskConversationMessage(taskId, message, options = {}) {
+      const task = (currentTask && currentTask.id === taskId) ? currentTask : findTaskInBoard(taskId)
+
+      if (isTerminalTask(task)) {
+        return sendTaskMessage(taskId, message, options)
+      }
+
+      try {
+        return await sendLiveTaskMessage(taskId, message, options)
+      } catch (e) {
+        if (e?.message === 'Terminal tasks cannot start live sessions') {
+          return sendTaskMessage(taskId, message, options)
+        }
+        throw e
+      }
+    }
+
+    async function stopTaskLiveSession(taskId, options = {}) {
+      const result = await api(`/api/tasks/${taskId}/live-session/stop`, {
+        method: 'POST',
+        body: {}
+      })
+
+      if (options.reopenDetail) {
+        await openTaskDetail(taskId)
+      } else {
+        await refreshAll()
+      }
+
+      return result
+    }
+
+    async function openKnowledgeBrowser(type) {
+      const cacheKey = type === 'wiki' ? 'wiki' : 'skill'
+      const cachedItems = knowledgeCache[cacheKey] || []
+      const loadingTitle = type === 'wiki' ? 'Wiki 列表' : 'Skill 列表'
+      if (cachedItems.length > 0) {
+        showKnowledgeModal(loadingTitle, renderKnowledgeList(type, cachedItems))
+      } else {
+        showKnowledgeModal(loadingTitle, renderModalLoading(`正在加载${type === 'wiki' ? ' Wiki' : ' Skill'}列表...`))
+      }
+
+      try {
+        if (type === 'wiki') {
+          const res = await api('/api/wiki')
+          knowledgeCache.wiki = res.wikis || []
+          showKnowledgeModal(`Wiki 列表 (${knowledgeCache.wiki.length})`, renderKnowledgeList('wiki', knowledgeCache.wiki))
+        } else {
+          const res = await api('/api/skills')
+          knowledgeCache.skill = res.skills || []
+          const claudeAvailable = knowledgeCache.skill.filter(skill => skill.availableToClaude).length
+          const nativeInstalled = knowledgeCache.skill.filter(skill => skill.sourceType === 'claude-installed').length
+          const projectSynced = knowledgeCache.skill.filter(skill => skill.sourceType === 'claude-project-sync').length
+          const autoGenerated = knowledgeCache.skill.filter(skill => skill.isAutoGenerated).length
+          const projectOnly = knowledgeCache.skill.filter(skill => !skill.availableToClaude).length
+          showKnowledgeModal(
+            `Skill 列表 (${knowledgeCache.skill.length}，Claude 可直接调用 ${claudeAvailable}，原生 ${nativeInstalled}，项目直装 ${projectSynced}，自动沉淀 ${autoGenerated}，未同步 ${projectOnly})`,
+            renderKnowledgeList('skill', knowledgeCache.skill)
+          )
+        }
+      } catch (e) {
+        alert('获取详情失败: ' + e.message)
+      }
+    }
+
+    function renderKnowledgeList(type, items) {
+      if (!items || items.length === 0) {
+        return '<p class="text-[12px] text-[#86868B] text-center py-6">暂无内容</p>'
+      }
+
+      return `
+        <div class="flex flex-col gap-3">
+          ${items.map(item => {
+            const id = type === 'wiki' ? item.id : item.name
+            const title = type === 'wiki' ? item.title : item.name
+            const description = type === 'wiki'
+              ? (item.preview || item.content || '').slice(0, 120)
+              : (item.description || '').slice(0, 120)
+            const time = type === 'wiki'
+              ? (item.updatedAt || item.createdAt)
+              : (item.updatedAt || item.createdAt)
+            const metaLine = type === 'skill'
+              ? `${item.sourceLabel || '未知来源'}${item.availableToClaude ? ' · Claude 可直接调用' : ' · 当前仅项目侧可见'}${item.isAutoGenerated ? ' · 自动沉淀' : ''}`
+              : `${item.keywords?.length || 0} 个关键词`
+            return `
+              <button type="button" onclick="openKnowledgeDetail('${type}', '${escapeJsString(id)}')" class="text-left bg-[#F5F5F7] hover:bg-[#EDEDF0] rounded-xl p-4 transition-colors">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-[13px] font-semibold text-[#1D1D1F] break-all">${escapeHtml(title)}</p>
+                    <p class="text-[10px] text-[#86868B] mt-1">${escapeHtml(metaLine)}</p>
+                    <p class="text-[11px] text-[#86868B] mt-1 whitespace-pre-wrap break-all">${escapeHtml(description || '暂无摘要')}</p>
+                  </div>
+                  <span class="text-[10px] text-[#86868B] flex-shrink-0">${formatTime(time)}</span>
+                </div>
+              </button>
+            `
+          }).join('')}
+        </div>
+      `
+    }
+
+    async function openKnowledgeDetail(type, id) {
+      try {
+        if (type === 'wiki') {
+          const res = await api(`/api/wiki/${encodeURIComponent(id)}`)
+          const wiki = res.wiki
+          const sourceSummary = wiki.sourceSummary || {}
+          document.getElementById('knowledge-modal-title').textContent = wiki.title || 'Wiki 详情'
+          document.getElementById('knowledge-modal-content').innerHTML = `
+            <div class="space-y-4">
+              <div class="flex flex-wrap items-center gap-2 text-[11px]">
+                <span class="px-2 py-0.5 rounded-full bg-[#E8F2FF] text-[#0071E3]">Wiki</span>
+                ${wiki.taskTag ? `<span class="px-2 py-0.5 rounded-full bg-[#F5F5F7] text-[#1D1D1F]">#${wiki.taskTag}</span>` : ''}
+                <span class="text-[#86868B]">创建：${formatDateTime(wiki.createdAt)}</span>
+                <span class="text-[#86868B]">更新：${formatDateTime(wiki.updatedAt)}</span>
+              </div>
+              ${wiki.sourceSummary ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">沉淀来源</p>
+                <div class="flex flex-wrap gap-2">
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.taskCount || 0} 个任务上下文</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.messageCount || 0} 条会话消息</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.outputLineCount || 0} 条执行输出</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.taskLogCount || 0} 条任务日志</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.decisionCount || 0} 个关键决策</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.verificationCount || 0} 条验证结论</span>
+                  <span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${sourceSummary.issueCount || 0} 个问题/修复点</span>
+                </div>
+              </div>
+              ` : ''}
+              ${wiki.keywords && wiki.keywords.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">关键词</p>
+                <div class="flex flex-wrap gap-2">
+                  ${wiki.keywords.map(keyword => `<span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${escapeHtml(keyword)}</span>`).join('')}
+                </div>
+              </div>
+              ` : ''}
+              ${wiki.artifactPaths && wiki.artifactPaths.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">相关文件与路径</p>
+                <div class="flex flex-col gap-1.5">
+                  ${wiki.artifactPaths.map(item => `
+                    <div class="bg-[#F5F5F7] rounded-lg px-3 py-2 text-[12px] text-[#1D1D1F] break-all">${escapeHtml(item)}</div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+              ${wiki.decisionHighlights && wiki.decisionHighlights.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">关键决策</p>
+                <div class="flex flex-col gap-1.5">
+                  ${wiki.decisionHighlights.map(item => `
+                    <div class="bg-[#F5F5F7] rounded-lg px-3 py-2 text-[12px] text-[#1D1D1F]">${escapeHtml(item)}</div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+              ${wiki.verificationHighlights && wiki.verificationHighlights.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">验证与验收</p>
+                <div class="flex flex-col gap-1.5">
+                  ${wiki.verificationHighlights.map(item => `
+                    <div class="bg-[#EEF9F1] rounded-lg px-3 py-2 text-[12px] text-[#1F6F43]">${escapeHtml(item)}</div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+              ${wiki.issueHighlights && wiki.issueHighlights.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">踩坑与修复</p>
+                <div class="flex flex-col gap-1.5">
+                  ${wiki.issueHighlights.map(item => `
+                    <div class="bg-[#FFF7ED] rounded-lg px-3 py-2 text-[12px] text-[#8A5A00]">${escapeHtml(item)}</div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+              <div class="bg-[#F5F5F7] rounded-xl p-4">
+                <pre class="whitespace-pre-wrap break-all text-[12px] text-[#1D1D1F]">${escapeHtml(wiki.content || '暂无内容')}</pre>
+              </div>
+              <button type="button" onclick="openKnowledgeBrowser('wiki')" class="text-[12px] text-[#0071E3] hover:underline">返回 Wiki 列表</button>
+            </div>
+          `
+        } else {
+          const res = await api(`/api/skills/${encodeURIComponent(id)}`)
+          const skill = res.skill
+          document.getElementById('knowledge-modal-title').textContent = skill.name || 'Skill 详情'
+          document.getElementById('knowledge-modal-content').innerHTML = `
+            <div class="space-y-4">
+              <div class="flex flex-wrap items-center gap-2 text-[11px]">
+                <span class="px-2 py-0.5 rounded-full bg-[#FFF4E8] text-[#FF9500]">Skill</span>
+                ${skill.category ? `<span class="px-2 py-0.5 rounded-full bg-[#F5F5F7] text-[#1D1D1F]">${escapeHtml(skill.category)}</span>` : ''}
+                <span class="text-[#86868B]">创建：${formatDateTime(skill.createdAt)}</span>
+                <span class="text-[#86868B]">更新：${formatDateTime(skill.updatedAt)}</span>
+              </div>
+              <div class="grid grid-cols-1 gap-2 text-[12px] text-[#1D1D1F]">
+                <div><span class="text-[#86868B]">名称：</span>${escapeHtml(skill.name || '—')}</div>
+                <div><span class="text-[#86868B]">版本：</span>${escapeHtml(skill.version || '—')}</div>
+                <div><span class="text-[#86868B]">状态：</span>${skill.enabled === false ? '禁用' : '启用'}</div>
+                <div><span class="text-[#86868B]">来源类型：</span>${escapeHtml(skill.sourceLabel || '—')}</div>
+                <div><span class="text-[#86868B]">Claude Code：</span>${skill.availableToClaude ? '可直接使用' : '当前未直接安装'}</div>
+                <div><span class="text-[#86868B]">自动沉淀：</span>${skill.isAutoGenerated ? '是' : '否'}</div>
+                <div><span class="text-[#86868B]">来源：</span>${escapeHtml(skill.sourcePath || '—')}</div>
+              </div>
+              ${skill.triggers && skill.triggers.length > 0 ? `
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">触发词</p>
+                <div class="flex flex-wrap gap-2">
+                  ${skill.triggers.map(trigger => `<span class="px-2 py-1 rounded-full bg-[#F5F5F7] text-[11px] text-[#1D1D1F]">${escapeHtml(trigger)}</span>`).join('')}
+                </div>
+              </div>
+              ` : ''}
+              <div>
+                <p class="text-[11px] text-[#86868B] mb-2">说明</p>
+                <div class="bg-[#F5F5F7] rounded-xl p-4">
+                  <pre class="whitespace-pre-wrap break-all text-[12px] text-[#1D1D1F]">${escapeHtml(skill.content || skill.description || '暂无内容')}</pre>
+                </div>
+              </div>
+              <button type="button" onclick="openKnowledgeBrowser('skill')" class="text-[12px] text-[#0071E3] hover:underline">返回 Skill 列表</button>
+            </div>
+          `
+        }
+      } catch (e) {
+        alert('获取详情失败: ' + e.message)
+      }
+    }
+
+    // 添加备注
+    async function addNote(taskId) {
+      const input = document.getElementById('note-input')
+      const note = input.value.trim()
+      if (!note) return
+
+      try {
+        await api(`/api/tasks/${taskId}/logs`, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'note', message: note })
+        })
+        input.value = ''
+        openTaskDetail(taskId) // 刷新详情
+      } catch (e) {
+        alert('添加备注失败: ' + e.message)
+      }
+    }
+
+    // 关闭模态框
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active')
+    }
+
+    // 切换输出详情显示
+    function toggleOutputDetails() {
+      const details = document.getElementById('output-details')
+      const btn = document.getElementById('toggle-output-btn')
+      if (details) {
+        details.classList.toggle('hidden')
+        btn.textContent = details.classList.contains('hidden') ? '展开全部' : '收起'
+      }
+    }
+
+    // 发送消息给 Agent
+    async function sendAgentMessage() {
+      const input = document.getElementById('agent-message-input')
+      const message = input.value.trim()
+      if (!message || !currentTask) return
+
+      try {
+        await sendTaskConversationMessage(currentTask.id, message, { reopenDetail: true })
+        input.value = ''
+      } catch (e) {
+        alert('发送消息失败: ' + e.message)
+      }
+    }
+
+    async function stopDetailLiveSession() {
+      if (!currentTask) return
+
+      try {
+        await stopTaskLiveSession(currentTask.id, { reopenDetail: true })
+      } catch (e) {
+        alert('结束会话失败: ' + e.message)
+      }
+    }
+
+    function openQuickMessage(taskId) {
+      if (openCardChats.has(taskId)) {
+        openCardChats.delete(taskId)
+      } else {
+        openCardChats.add(taskId)
+      }
+      renderBoard(currentBoard, currentAgents)
+    }
+
+    function updateCardChatDraft(taskId, value) {
+      cardChatDrafts[taskId] = value
+    }
+
+    async function sendCardLiveMessage(taskId) {
+      const input = document.getElementById(`card-chat-input-${taskId}`)
+      const message = (input?.value || cardChatDrafts[taskId] || '').trim()
+      if (!message) return
+
+      cardChatDrafts[taskId] = ''
+
+      try {
+        await sendTaskConversationMessage(taskId, message)
+      } catch (e) {
+        cardChatDrafts[taskId] = message
+        alert('发送消息失败: ' + e.message)
+      }
+    }
+
+    async function stopCardLiveSession(taskId) {
+      try {
+        await stopTaskLiveSession(taskId)
+      } catch (e) {
+        alert('结束会话失败: ' + e.message)
+      }
+    }
+
+    // HTML 转义
+    function escapeHtml(text) {
+      if (text === undefined || text === null) return ''
+      // 清除所有 ANSI 转义码，避免原始控制字符显示在卡片上
+      // CSI: \x1b[参数字母  (颜色/样式/光标等)
+      // OSC: \x1b]字符串\x07/ST  (标题/文件名等)
+      // 双字节: \x1b字母   (其他两字节控制序列)
+      // 注意: 用三个独立 replace 而非合并正则，避免 [^[\]] 吞掉序列间文字
+      const cleaned = String(text)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+        .replace(/\x1b[A-Za-z]/g, '')
+        .replace(/\r/g, '')  // 去除回车符，避免覆盖前面内容
+      const div = document.createElement('div')
+      div.textContent = cleaned
+      return div.innerHTML
+    }
+
+    function escapeAttr(text) {
+      return escapeHtml(text)
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+
+    function escapeJsString(text) {
+      return String(text || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '')
+    }
+
+    // 获取任务标签颜色
+    const TAG_COLORS = [
+      '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF',
+      '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#00C7BE'
+    ]
+    function getTagColor(tagNum) {
+      if (!tagNum) return '#86868B'
+      return TAG_COLORS[(tagNum - 1) % TAG_COLORS.length]
+    }
+
+    // 格式化时间（相对时间，用于时间线）
+    function formatTimeRelative(isoString) {
+      if (!isoString) return '未知'
+      const date = new Date(isoString)
+      const now = new Date()
+      const diff = Math.floor((now - date) / 1000)
+
+      if (diff < 60) return '刚刚'
+      if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+      if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+      return date.toLocaleDateString('zh-CN')
+    }
+
+    // 点击模态框外部关闭
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active')
+        }
+      })
+    })
+
+    // 初始化
+    refreshAll()
+    connectWS()
+
+    // 每 10 秒自动刷新
+    setInterval(refreshAll, 10000)
+  </script>
+</body>
+</html>

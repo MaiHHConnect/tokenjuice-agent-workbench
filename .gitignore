@@ -1,0 +1,45 @@
+# OS / editor
+.DS_Store
+
+# Dependencies
+node_modules/
+cloud-server/node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local agent / runtime state
+.claude/
+.omc/
+knowledge/
+workspaces/
+project-knowledge/
+
+# Internal project notes that should not be published
+AGENTS.md
+改善总结.md
+改善计划执行.md
+cloud-server/修复记录.md
+cloud-server/修复详情-*.md
+cloud-server/card-component-inventory.md
+
+# Cloud server local state / generated data
+cloud-server/.omc/
+cloud-server/memory/
+cloud-server/data/
+cloud-server/workspaces/
+
+# Internal learned skills / knowledge artifacts
+cloud-server/skills/沉淀/
+
+# Common generated outputs
+coverage/
+dist/
+build/
+tmp/
+temp/
+*.log
