@@ -107,7 +107,7 @@ node src/mcp/server.js
 
 ### 3. 访问 Web UI（可选）
 
-打开浏览器访问 http://localhost:6666 即可看到可视化的看板界面。
+打开浏览器访问 http://localhost:8085 即可看到可视化的看板界面。
 
 ### 5. 启动钉钉集成（可选）
 
@@ -121,7 +121,7 @@ export DINGTALK_APP_KEY="dingxxx"
 export DINGTALK_APP_SECRET="xxx"
 
 # 测试钉钉连接
-curl -X POST http://localhost:6666/api/dingtalk/test
+curl -X POST http://localhost:8085/api/dingtalk/test
 ```
 
 ### 6. 使用钉钉命令
@@ -195,7 +195,7 @@ node src/cli.js bug <taskId> "按钮点击无反应"
                               │ HTTP / MCP
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     云服务器 (端口 6666)                           │
+│                     云服务器 (端口 8085)                           │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                     Koa API Server                         │  │
 │  │  - 看板数据持久化 (JSON 文件存储)                            │  │
@@ -261,7 +261,7 @@ claude-code/
 
 ### 2026-04-13
 
-- 完成云端服务器 (端口 6666)
+- 完成云端服务器 (端口 8085)
 - 完成 CLI 工具
 - 完成 MCP Server (端口 6667)
 - 完成 Claude Code Agent 配置

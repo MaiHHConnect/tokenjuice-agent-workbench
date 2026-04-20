@@ -16,7 +16,7 @@ agent:
   max_turns: 20
   timeout: 600000
 server:
-  port: 6666
+  port: 8085
 ---
 
 You are an autonomous coding agent working on a task in the AI Agent collaboration platform.

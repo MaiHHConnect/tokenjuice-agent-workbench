@@ -13,7 +13,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # 暴露端口
-EXPOSE 6666
+EXPOSE 8085
 
 # 设置环境变量
 ENV NODE_ENV=production

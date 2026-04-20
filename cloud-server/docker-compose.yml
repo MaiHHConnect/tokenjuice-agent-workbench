@@ -4,9 +4,9 @@ services:
   scheduler-server:
     build: .
     ports:
-      - "6666:6666"
+      - "8085:8085"
     environment:
-      - PORT=6666
+      - PORT=8085
       - HOST=0.0.0.0
       # 钉钉 Webhook 配置（可选）
       - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL:-}

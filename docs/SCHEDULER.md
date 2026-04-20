@@ -18,7 +18,7 @@
                               │ HTTP
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     云服务器 (端口 6666)                           │
+│                     云服务器 (端口 8085)                           │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                     Koa API Server                         │  │
 │  │  - 看板数据持久化 (JSON 文件存储)                            │  │
@@ -37,37 +37,37 @@ npm install
 npm start
 ```
 
-服务器将在 http://localhost:6666 启动
+服务器将在 http://localhost:8085 启动
 
 ### 2. 验证服务器运行
 
 ```bash
-curl http://localhost:6666/health
+curl http://localhost:8085/health
 ```
 
 ### 3. 使用看板 API
 
 ```bash
 # 创建任务
-curl -X POST http://localhost:6666/api/tasks \
+curl -X POST http://localhost:8085/api/tasks \
   -H "Content-Type: application/json" \
   -d '{"title": "实现登录功能", "skills": ["frontend", "backend"]}'
 
 # 查看看板
-curl http://localhost:6666/api/board
+curl http://localhost:8085/api/board
 
 # 认领任务
-curl -X POST http://localhost:6666/api/tasks/<task-id>/claim \
+curl -X POST http://localhost:8085/api/tasks/<task-id>/claim \
   -H "Content-Type: application/json" \
   -d '{"agentId": "<agent-id>"}'
 
 # 更新状态
-curl -X PATCH http://localhost:6666/api/tasks/<task-id>/status \
+curl -X PATCH http://localhost:8085/api/tasks/<task-id>/status \
   -H "Content-Type: application/json" \
   -d '{"status": "ReadyForTest"}'
 
 # 报告 Bug
-curl -X POST http://localhost:6666/api/tasks/<task-id>/bug \
+curl -X POST http://localhost:8085/api/tasks/<task-id>/bug \
   -H "Content-Type: application/json" \
   -d '{"bugReport": "登录按钮点击无反应"}'
 ```
