@@ -248,6 +248,13 @@
       border-color: #B8B8BE;
     }
 
+    .input-action-button {
+      min-width: 112px;
+      justify-content: center;
+      border-radius: 14px;
+      padding: 0 16px;
+    }
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -496,9 +503,15 @@
           </div>
           <div class="mb-4">
             <label class="block text-[14px] font-medium text-[#86868B] mb-2">操作文件夹 / 资料路径</label>
-            <input type="text" id="task-operation-folder" placeholder="/Users/linhao/Desktop/项目目录"
-              class="w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[15px] focus:outline-none focus:border-[#0071E3]">
-            <p class="mt-2 text-[12px] text-[#86868B]">如果任务只应该在某个目录内查看资料或改文件，这里填绝对路径。</p>
+            <div class="flex gap-2">
+              <input type="text" id="task-operation-folder" placeholder="/Users/linhao/Desktop/项目目录"
+                class="flex-1 w-full px-4 py-3 border border-[#E5E5EA] rounded-xl text-[15px] focus:outline-none focus:border-[#0071E3]">
+              <button type="button" onclick="selectOperationFolder()" id="task-operation-folder-picker" class="btn-secondary input-action-button">
+                <i class="fas fa-folder-open"></i>
+                选择文件夹
+              </button>
+            </div>
+            <p class="mt-2 text-[12px] text-[#86868B]">可以直接输入绝对路径，也可以点击“选择文件夹”用系统窗口选择。</p>
           </div>
           <div class="flex gap-3 justify-end mt-6">
             <button type="button" onclick="closeModal('create-modal')"
@@ -1687,6 +1700,27 @@
       document.getElementById('task-desc').value = ''
       document.getElementById('task-operation-folder').value = ''
       document.getElementById('create-modal').classList.add('active')
+    }
+
+    async function selectOperationFolder() {
+      const pickerButton = document.getElementById('task-operation-folder-picker')
+      const operationFolderInput = document.getElementById('task-operation-folder')
+      const originalContent = pickerButton.innerHTML
+
+      pickerButton.disabled = true
+      pickerButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 选择中'
+
+      try {
+        const result = await api('/api/system/select-folder', { method: 'POST' })
+        operationFolderInput.value = result.path || ''
+      } catch (e) {
+        if (!String(e.message || '').includes('已取消选择')) {
+          alert('选择文件夹失败: ' + e.message)
+        }
+      } finally {
+        pickerButton.disabled = false
+        pickerButton.innerHTML = originalContent
+      }
     }
 
     // 创建任务

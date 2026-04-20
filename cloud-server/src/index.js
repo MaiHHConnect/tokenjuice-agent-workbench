@@ -3,6 +3,7 @@ import Router from '@koa/router'
 import bodyParser from 'koa-bodyparser'
 import serve from 'koa-static'
 import path from 'path'
+import { execFile } from 'child_process'
 import { fileURLToPath } from 'url'
 // WebSocket 广播模块（消除循环依赖）
 import { wsClients, broadcast, createWebSocketServer } from './wsBroadcast.js'
@@ -70,6 +71,42 @@ function serializeBoard(board = {}) {
   return Object.fromEntries(
     Object.entries(board).map(([status, tasks]) => [status, serializeTaskList(tasks)])
   )
+}
+
+function selectFolderWithNativeDialog() {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'darwin') {
+      reject(new Error('当前系统暂不支持原生目录选择，请先手动输入绝对路径'))
+      return
+    }
+
+    execFile(
+      'osascript',
+      [
+        '-e',
+        'POSIX path of (choose folder with prompt "请选择任务操作文件夹 / 资料路径")'
+      ],
+      (error, stdout, stderr) => {
+        if (error) {
+          const rawMessage = String(stderr || error.message || '').trim()
+          if (rawMessage.includes('User canceled')) {
+            reject(new Error('已取消选择'))
+            return
+          }
+          reject(new Error(rawMessage || '打开目录选择器失败'))
+          return
+        }
+
+        const selectedPath = String(stdout || '').trim()
+        if (!selectedPath) {
+          reject(new Error('未获取到目录路径'))
+          return
+        }
+
+        resolve(selectedPath)
+      }
+    )
+  })
 }
 
 function serializeCompactSubTask(task) {
@@ -361,6 +398,11 @@ router.get('/api/tasks', (ctx) => {
 // 获取看板视图
 router.get('/api/board', (ctx) => {
   ctx.body = { board: serializeBoard(db.getBoard()) }
+})
+
+router.post('/api/system/select-folder', async (ctx) => {
+  const folderPath = await selectFolderWithNativeDialog()
+  ctx.body = { path: folderPath }
 })
 
 // 创建任务
