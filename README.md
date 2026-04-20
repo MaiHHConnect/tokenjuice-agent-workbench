@@ -1,4 +1,4 @@
-# Claude 白板 - 榨干每单位代币效率的 Claude Code 多代理白板工作台 | Maximize Every Token
+# 白白板 - 榨干每单位代币效率的 Claude Code 多代理白板工作台 | Maximize Every Token
 
 目标就一个：一句话出结果。
 
