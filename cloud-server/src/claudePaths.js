@@ -122,3 +122,41 @@ export function buildClaudeAgentDirSources(projectAgentsDir) {
 
   return uniquePaths(sources.map(source => source.dir)).map(dir => sources.find(source => path.resolve(source.dir) === dir))
 }
+
+export function getClaudeCliLaunchSpec() {
+  const explicitCommand = String(process.env.CLAUDE_BIN || process.env.CLAUDE_CMD || '').trim()
+  const explicitCliPath = String(process.env.CLAUDE_CLI_PATH || '').trim()
+  const candidates = [
+    explicitCommand ? { kind: 'binary', path: explicitCommand } : null,
+    { kind: 'binary', path: '/opt/homebrew/bin/claude' },
+    { kind: 'binary', path: '/usr/local/bin/claude' },
+    explicitCliPath ? { kind: 'entry', path: explicitCliPath } : null,
+    { kind: 'entry', path: '/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js' },
+    { kind: 'entry', path: '/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js' },
+    { kind: 'binary', path: '/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe' }
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate.path)) continue
+
+    if (candidate.kind === 'entry') {
+      return {
+        command: 'node',
+        prefixArgs: [candidate.path],
+        displayCommand: `node ${candidate.path}`
+      }
+    }
+
+    return {
+      command: candidate.path,
+      prefixArgs: [],
+      displayCommand: candidate.path
+    }
+  }
+
+  return {
+    command: 'claude',
+    prefixArgs: [],
+    displayCommand: 'claude'
+  }
+}

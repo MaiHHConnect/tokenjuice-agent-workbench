@@ -276,6 +276,11 @@ function ensureTaskShape(task) {
   if (!Array.isArray(task.outputLines)) task.outputLines = []
   if (!Array.isArray(task.messages)) task.messages = []
   if (!Array.isArray(task.riskSignals)) task.riskSignals = []
+  task.executionFailureCount = Number.isFinite(Number(task.executionFailureCount))
+    ? Math.max(0, Number(task.executionFailureCount))
+    : 0
+  task.executionFailureBlockedAt = task.executionFailureBlockedAt || null
+  task.lastExecutionFailureAt = task.lastExecutionFailureAt || null
 
   if (typeof task.currentOutput !== 'string') {
     task.currentOutput = task.currentOutput ? String(task.currentOutput) : ''
@@ -984,6 +989,9 @@ const db = {
       assignedAgentId: null,
       skills: task.skills || [],
       loopCount: 0,
+      executionFailureCount: 0,
+      executionFailureBlockedAt: null,
+      lastExecutionFailureAt: null,
       bugReport: null,
       attachments: {},
       acceptanceCriteria: Array.isArray(task.acceptanceCriteria) ? task.acceptanceCriteria : [],
@@ -1448,6 +1456,9 @@ const db = {
     task.blockedReason = null
     task.bugReport = null
     task.maxRetryBlockedAt = null
+    task.executionFailureCount = 0
+    task.executionFailureBlockedAt = null
+    task.lastExecutionFailureAt = null
     task.updatedAt = new Date().toISOString()
     task.workspace.status = task.workspace.path ? 'retained_for_fix' : 'none'
     task.workspace.retainedForQa = false
@@ -1508,16 +1519,20 @@ const db = {
 
   // ============ Task Logs ============
 
-  getTaskHistory(taskId) {
-    return this._data.taskHistory
+  getTaskHistory(taskId, options = {}) {
+    const limit = Number.isFinite(Number(options.limit)) ? Math.max(0, Number(options.limit)) : null
+    const entries = this._data.taskHistory
       .filter(h => h.taskId === taskId)
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    return limit ? entries.slice(-limit) : entries
   },
 
-  getTaskLogs(taskId) {
-    return this._data.taskLogs
+  getTaskLogs(taskId, options = {}) {
+    const limit = Number.isFinite(Number(options.limit)) ? Math.max(0, Number(options.limit)) : null
+    const entries = this._data.taskLogs
       .filter(l => l.taskId === taskId)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    return limit ? entries.slice(0, limit) : entries
   },
 
   addTaskLog(taskId, log) {

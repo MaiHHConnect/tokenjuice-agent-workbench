@@ -689,6 +689,8 @@
     const LAZY_STATS_TTL = 5000
     const LAZY_AGENTS_TTL = 30000
     const TERMINAL_TASK_STATUSES = new Set(['Done', 'Cancelled', 'Duplicate'])
+    const DETAIL_HISTORY_LIMIT = 120
+    const DETAIL_LOG_LIMIT = 120
 
     // 状态配置（无阻塞列，任务持续运行直到完成）
     const STATUSES = [
@@ -2153,8 +2155,8 @@
 
         const [taskRes, historyRes, logsRes, agentsRes, subTasksRes] = await Promise.all([
           api(`/api/tasks/${taskId}`),
-          api(`/api/tasks/${taskId}/history`),
-          api(`/api/tasks/${taskId}/logs`),
+          api(`/api/tasks/${taskId}/history?limit=${DETAIL_HISTORY_LIMIT}`),
+          api(`/api/tasks/${taskId}/logs?limit=${DETAIL_LOG_LIMIT}`),
           agentsPromise,
           api(`/api/tasks/${taskId}/subtasks?compact=true`).catch(() => ({ subTasks: [] }))
         ])
@@ -2252,6 +2254,13 @@
         }).join('') : '<p class="text-[12px] text-[#86868B] text-center py-3">暂无记录</p>'
 
         const activityFeedHtml = renderTaskActivityFeed(task, outputLines)
+        const timelineLimitNotice = (history.length >= DETAIL_HISTORY_LIMIT || logs.length >= DETAIL_LOG_LIMIT)
+          ? `
+            <div class="bg-[#FFF9E8] border border-[#F3D28C] rounded-lg px-3 py-2 mb-3">
+              <p class="text-[11px] text-[#7A5200]">为避免任务详情卡顿，这里仅展示最近 ${DETAIL_HISTORY_LIMIT} 条状态记录和最近 ${DETAIL_LOG_LIMIT} 条日志。</p>
+            </div>
+          `
+          : ''
 
         const messagePlaceholder = task.status === 'Done'
           ? '任务已完成，不能继续开启实时会话'
@@ -2414,6 +2423,8 @@
           ` : ''}
 
           ${renderDetailSubTasks(task, subTasks)}
+
+          ${timelineLimitNotice}
 
           <div class="mb-3">
             <div class="flex items-center justify-between mb-2">

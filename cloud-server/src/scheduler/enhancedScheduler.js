@@ -14,8 +14,9 @@ import db from '../db.js'
 import workspaceManager from '../workspace.js'
 import workflowManager from '../workflow.js'
 import { collectVerificationEvidence } from '../verificationEvidence.js'
+import { getClaudeCliLaunchSpec } from '../claudePaths.js'
 
-const CLAUDE_CLI_PATH = '/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js'
+const CLAUDE_LAUNCH_SPEC = getClaudeCliLaunchSpec()
 const AGENT_NAME_MAP = {
   developer: 'executor',
   tester: 'qa-tester',
@@ -24,6 +25,9 @@ const AGENT_NAME_MAP = {
   planner: 'planner',
   reviewer: 'code-reviewer'
 }
+const EXECUTION_PROCESS_FAILURE_RETRY_DELAY_MS = 60000
+const EXECUTION_PROCESS_FAILURE_MAX_COUNT = 3
+const FAILURE_LOG_DEDUPE_WINDOW_MS = 15000
 
 export class EnhancedScheduler {
   constructor(options = {}) {
@@ -1102,6 +1106,142 @@ ${task.description || '请完成这个任务'}${this.buildContractContext(task)}
     return true
   }
 
+  addTaskLogDeduped(taskId, log, dedupeWindowMs = FAILURE_LOG_DEDUPE_WINDOW_MS) {
+    if (!taskId || !log?.action) return null
+
+    const [latestLog] = db.getTaskLogs(taskId, { limit: 1 })
+    if (latestLog && latestLog.action === log.action && (latestLog.message || null) === (log.message || null)) {
+      const latestTime = Date.parse(latestLog.createdAt)
+      if (Number.isFinite(latestTime) && Date.now() - latestTime <= dedupeWindowMs) {
+        return latestLog
+      }
+    }
+
+    return db.addTaskLog(taskId, log)
+  }
+
+  appendTaskOutputDeduped(taskId, line, dedupeWindowMs = FAILURE_LOG_DEDUPE_WINDOW_MS) {
+    const task = db.getTaskById(taskId)
+    if (!task) return null
+
+    const normalizedLine = String(line || '')
+    const latestLine = Array.isArray(task.outputLines) && task.outputLines.length > 0
+      ? task.outputLines[task.outputLines.length - 1]
+      : null
+    if (latestLine && String(latestLine.content || '') === normalizedLine) {
+      const latestTime = Date.parse(latestLine.timestamp)
+      if (Number.isFinite(latestTime) && Date.now() - latestTime <= dedupeWindowMs) {
+        return latestLine
+      }
+    }
+
+    return db.appendTaskOutput(taskId, normalizedLine)
+  }
+
+  beginExecutionSettlement(taskId) {
+    const activeTask = this.activeTasks.get(taskId)
+    if (!activeTask || activeTask.executionSettlementStarted) {
+      return null
+    }
+    activeTask.executionSettlementStarted = true
+    return activeTask
+  }
+
+  resetExecutionFailureState(taskId) {
+    const task = db.getTaskById(taskId)
+    if (!task) return null
+
+    if (!task.executionFailureCount && !task.executionFailureBlockedAt && !task.lastExecutionFailureAt) {
+      return task
+    }
+
+    task.executionFailureCount = 0
+    task.executionFailureBlockedAt = null
+    task.lastExecutionFailureAt = null
+    task.updatedAt = new Date().toISOString()
+    db.save()
+    return task
+  }
+
+  async handleExecutionProcessFailure(taskId, activeTask, options = {}) {
+    const taskRef = db.getTaskById(taskId)
+    if (!taskRef) {
+      if (activeTask?.agent?.id) {
+        db.releaseAgent(activeTask.agent.id, taskId)
+      }
+      this.activeTasks.delete(taskId)
+      return null
+    }
+
+    const code = options.code
+    const trigger = options.trigger || 'close'
+    const nextFailureCount = Number(taskRef.executionFailureCount || 0) + 1
+    const now = new Date()
+    const nowIso = now.toISOString()
+    const currentStatus = ['InDev', 'InFix', 'ReadyForDeploy'].includes(taskRef.status) ? taskRef.status : 'InDev'
+
+    taskRef.executionFailureCount = nextFailureCount
+    taskRef.lastExecutionFailureAt = nowIso
+    taskRef.updatedAt = nowIso
+    taskRef.retryAfter = new Date(now.getTime() + EXECUTION_PROCESS_FAILURE_RETRY_DELAY_MS).toISOString()
+    taskRef.transientError = {
+      stage: 'execution_process',
+      reason: trigger,
+      message: `执行进程异常退出（code: ${code ?? 'unknown'}）`,
+      createdAt: nowIso
+    }
+    taskRef.workspace.status = currentStatus === 'ReadyForDeploy' ? 'retained_for_qa' : 'retained_for_fix'
+    taskRef.workspace.retainedForQa = currentStatus === 'ReadyForDeploy'
+    taskRef.workspace.updatedAt = nowIso
+
+    if (activeTask?.agent?.id) {
+      db.releaseAgent(activeTask.agent.id, taskId)
+    }
+
+    let statusChanged = false
+    if (taskRef.status !== currentStatus) {
+      db.updateTaskStatus(taskId, currentStatus)
+      statusChanged = true
+    }
+
+    if (nextFailureCount >= EXECUTION_PROCESS_FAILURE_MAX_COUNT) {
+      const blockedMessage = `执行进程已连续 ${nextFailureCount} 次启动/退出异常（最近 code: ${code ?? 'unknown'}），调度器已自动阻塞任务，避免无限重试。`
+      db.updateTaskStatus(taskId, 'Blocked')
+      taskRef.blockedReason = blockedMessage
+      taskRef.executionFailureBlockedAt = nowIso
+      delete taskRef.retryAfter
+      delete taskRef.transientError
+      taskRef.workspace.status = 'blocked'
+      taskRef.workspace.retainedForQa = false
+      taskRef.workspace.updatedAt = nowIso
+      taskRef.updatedAt = nowIso
+      taskRef.maxRetryBlockedAt = taskRef.maxRetryBlockedAt || nowIso
+      db.save()
+      this.addTaskLogDeduped(taskId, {
+        agentId: activeTask?.agent?.id,
+        action: '自动阻塞',
+        message: blockedMessage
+      })
+      this.appendTaskOutputDeduped(taskId, `[系统] ${blockedMessage}`)
+    } else {
+      const retryMessage = `执行进程异常退出（code: ${code ?? 'unknown'}），任务保持 ${currentStatus} 并进入冷却，${Math.round(EXECUTION_PROCESS_FAILURE_RETRY_DELAY_MS / 1000)} 秒后自动重试（${nextFailureCount}/${EXECUTION_PROCESS_FAILURE_MAX_COUNT}）。`
+      db.save()
+      this.addTaskLogDeduped(taskId, {
+        agentId: activeTask?.agent?.id,
+        action: '执行启动异常',
+        message: retryMessage
+      })
+      this.appendTaskOutputDeduped(taskId, `[系统] ${retryMessage}`)
+      if (!statusChanged) {
+        db.emitTaskRefresh(taskId, { status: taskRef.status })
+      }
+    }
+
+    this.activeTasks.delete(taskId)
+    this.scheduleNext()
+    return db.getTaskById(taskId)
+  }
+
   decorateTask(task) {
     if (!task) return task
     const resolvedStatuses = new Set(['ReadyForTest', 'ReadyForDeploy', 'Done'])
@@ -1597,8 +1737,8 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
 
     const { spawn } = await import('child_process')
     const claudeAgentName = this.getClaudeAgentName(result.agent)
-    const proc = spawn('node', [
-      CLAUDE_CLI_PATH,
+    const proc = spawn(CLAUDE_LAUNCH_SPEC.command, [
+      ...CLAUDE_LAUNCH_SPEC.prefixArgs,
       '-p',
       '--output-format', 'stream-json',
       '--input-format', 'stream-json',
@@ -2167,14 +2307,14 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
       taskPrompt
     ]
 
-    console.log(`[Scheduler] Executing: node ${CLAUDE_CLI_PATH} ${args.join(' ')}`)
+    console.log(`[Scheduler] Executing: ${CLAUDE_LAUNCH_SPEC.displayCommand} ${args.join(' ')}`)
     console.log(`[Scheduler] cwd: ${absoluteWorkspacePath}`)
 
     // 关键：设置 CLAUDECODE 为空字符串（而不是删除环境变量）
     // 这样可以避免 "Cannot be launched inside another Claude Code session" 错误
     const spawnEnv = { ...process.env, CLAUDECODE: '' }
 
-    const proc = spawn('node', [CLAUDE_CLI_PATH, ...args], {
+    const proc = spawn(CLAUDE_LAUNCH_SPEC.command, [...CLAUDE_LAUNCH_SPEC.prefixArgs, ...args], {
       cwd: absoluteWorkspacePath,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: spawnEnv
@@ -2239,7 +2379,7 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
     proc.on('close', async (code) => {
       console.log(`[Scheduler] Claude Code exited for task ${taskId} with code ${code}`)
 
-      const activeTask = this.activeTasks.get(taskId)
+      const activeTask = this.beginExecutionSettlement(taskId)
       if (activeTask) {
         this.flushStructuredStdoutBuffer(taskId, activeTask, streamState, {
           finalizeOptions: {
@@ -2284,8 +2424,11 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
           })
           this.scheduleNext()
         } else {
-          // 任务失败，标记为需要修复
-          await this.completeTask(taskId, 'InFix')
+          // Claude Code 进程直接异常退出时，进入冷却重试而不是立刻打回 InFix。
+          await this.handleExecutionProcessFailure(taskId, activeTask, {
+            code,
+            trigger: 'close'
+          })
         }
 
         // Stop Hook: batch 会话结束时触发
@@ -2302,7 +2445,7 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
     proc.on('error', (error) => {
       console.error(`[Scheduler] Claude Code process error for task ${taskId}:`, error.message)
 
-      const activeTask = this.activeTasks.get(taskId)
+      const activeTask = this.beginExecutionSettlement(taskId)
       if (activeTask) {
         if (activeTask.restartRequested) {
           activeTask.process = null
@@ -2314,7 +2457,12 @@ ${this.buildOperationFolderContext(task)}${this.buildConversationContext(task, 1
         }
 
         activeTask.process = null
-        this.completeTask(taskId, 'InFix')
+        this.handleExecutionProcessFailure(taskId, activeTask, {
+          code: null,
+          trigger: `process_error:${error.message}`
+        }).catch(settlementError => {
+          console.error(`[Scheduler] Failed to settle execution process error for ${taskId}:`, settlementError.message)
+        })
       }
     })
   }
@@ -2444,7 +2592,7 @@ ${canSubTasksDecomposeFurther
         capturedText: ''
       }
 
-      const proc = spawn('node', [CLAUDE_CLI_PATH, ...args], {
+      const proc = spawn(CLAUDE_LAUNCH_SPEC.command, [...CLAUDE_LAUNCH_SPEC.prefixArgs, ...args], {
         cwd: workspacePath,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: spawnEnv
@@ -2724,6 +2872,8 @@ ${canSubTasksDecomposeFurther
     }
 
     try {
+      this.resetExecutionFailureState(taskId)
+
       // 保存 agent 和 task 引用
       const agent = activeTask.agent
       const task = activeTask.task
@@ -3393,7 +3543,7 @@ ${this.buildAgentSkillContext(agent)}
       `--`, verifyPrompt
     ]
 
-    const proc = spawn('node', [CLAUDE_CLI_PATH, ...args], {
+    const proc = spawn(CLAUDE_LAUNCH_SPEC.command, [...CLAUDE_LAUNCH_SPEC.prefixArgs, ...args], {
       cwd: workspacePath,
       stdio: ['ignore', 'pipe', 'pipe'],
       // 清除 CLAUDECODE 环境变量，避免"nested session"错误

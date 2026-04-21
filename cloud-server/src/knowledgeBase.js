@@ -3,11 +3,12 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
 import { createHash } from 'crypto'
+import { getClaudeCliLaunchSpec } from './claudePaths.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const DEFAULT_ROOT = path.resolve(__dirname, '..', '..', 'project-knowledge')
-const CLAUDE_CLI_PATH = '/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js'
+const CLAUDE_LAUNCH_SPEC = getClaudeCliLaunchSpec()
 const KNOWN_KNOWLEDGE_TYPES = ['concepts', 'topics', 'runbooks']
 const CONFLICT_KEYWORDS = ['矛盾', '冲突', '不一致', '不可同时为真', '互相矛盾', '冲突定义']
 
@@ -225,7 +226,7 @@ async function callClaudeWriter(prompt, timeoutMs = 180000) {
     ]
 
     const spawnEnv = { ...process.env, CLAUDECODE: '' }
-    const proc = spawn('node', [CLAUDE_CLI_PATH, ...args], {
+    const proc = spawn(CLAUDE_LAUNCH_SPEC.command, [...CLAUDE_LAUNCH_SPEC.prefixArgs, ...args], {
       cwd: process.cwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
       env: spawnEnv

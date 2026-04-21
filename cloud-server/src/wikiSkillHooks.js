@@ -14,7 +14,7 @@ import db from './db.js'
 import * as skills from './skills.js'
 import workspaceManager from './workspace.js'
 import { buildWikiContext } from './wikiContextBuilder.js'
-import { resolvePreferredClaudeSkillsDir } from './claudePaths.js'
+import { getClaudeCliLaunchSpec, resolvePreferredClaudeSkillsDir } from './claudePaths.js'
 import knowledgeBase from './knowledgeBase.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -420,7 +420,7 @@ function mirrorSkillToClaudeUserDir(skillName, skillContent) {
  */
 async function callLLM(prompt) {
   return new Promise((resolve, reject) => {
-    const claudePath = '/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js'
+    const claudeLaunchSpec = getClaudeCliLaunchSpec()
 
     const args = [
       '-p',
@@ -432,7 +432,7 @@ async function callLLM(prompt) {
 
     const spawnEnv = { ...process.env, CLAUDECODE: '' }
 
-    const proc = spawn('node', [claudePath, ...args], {
+    const proc = spawn(claudeLaunchSpec.command, [...claudeLaunchSpec.prefixArgs, ...args], {
       cwd: process.cwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
       env: spawnEnv

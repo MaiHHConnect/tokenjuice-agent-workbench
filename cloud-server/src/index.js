@@ -846,7 +846,9 @@ router.post('/api/tasks/:id/bug', async (ctx) => {
 // 获取任务历史（状态流转记录）
 router.get('/api/tasks/:id/history', (ctx) => {
   const { id } = ctx.params
-  ctx.body = { history: db.getTaskHistory(id) }
+  const rawLimit = Number(ctx.query.limit)
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : null
+  ctx.body = { history: db.getTaskHistory(id, limit ? { limit } : {}) }
 })
 
 // 获取子任务列表
@@ -863,7 +865,9 @@ router.get('/api/tasks/:id/subtasks', (ctx) => {
 // 获取任务日志
 router.get('/api/tasks/:id/logs', (ctx) => {
   const { id } = ctx.params
-  ctx.body = { logs: db.getTaskLogs(id) }
+  const rawLimit = Number(ctx.query.limit)
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : null
+  ctx.body = { logs: db.getTaskLogs(id, limit ? { limit } : {}) }
 })
 
 // 追加日志
